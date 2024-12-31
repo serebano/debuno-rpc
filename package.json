@@ -1,11 +1,21 @@
 {
-  "name": "rpc",
+  "name": "@debuno/rpc",
   "version": "0.0.1",
-  "module": "index.ts",
-  "scripts": {
-    "dev:deno": "debuno deno index.ts",
-    "dev:bun": "debuno bun index.ts",
-    "dev:node": "debuno node index.ts",
-    "dev": "bun run dev:deno && bun run dev:bun && bun run dev:node"
+  "module": "mod.ts",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/serebano/debuno-rpc.git"
+  },
+  "homepage": "https://debuno.dev/rpc",
+  "exports": {
+    ".": "./mod.ts",
+    "./serve": "./serve.ts",
+    "./serve/deno": "./serve/deno.ts",
+    "./serve/bun": "./serve/bun.ts",
+    "./serve/node": "./serve/node.ts"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
