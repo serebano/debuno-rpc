@@ -1,8 +1,11 @@
+/// <reference types="npm:bun-types@1.1.42" />
+/// <reference path="../node_modules/bun-types/index.d.ts" />
 import { createRequestHandler, type ServeOptions } from "../mod.ts";
+import type { Server } from "bun"
 
 export const ENV = "bun" as const
 
-export function serve(options: ServeOptions): ReturnType<typeof Bun.serve> {
+export function serve(options: ServeOptions): Server {
     const { port, path, hostname } = options
 
     const server = Bun.serve({

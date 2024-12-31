@@ -1,3 +1,15 @@
 {
+    "name": "@debuno/rpc",
+    "version": "0.0.1",
+    "exports": {
+        ".": "./mod.ts",
+        "./serve": "./serve.ts",
+        "./serve/deno": "./serve/deno.ts",
+        "./serve/bun": "./serve/bun.ts",
+        "./serve/node": "./serve/node.ts"
+    },
+    "imports": {
+        "bun": "npm:@types/bun@^1.1.14"
+    },
     "nodeModulesDir": "auto"
 }

@@ -1,9 +1,7 @@
-/// <reference types="npm:bun-types" />
-/// <reference path="./node_modules/bun-types/index.d.ts" />
 import { ENV, resolvePath, type ServeModule, type ServeOptions } from './mod.ts'
 import type { Server as NodeServer } from 'node:http'
 import process from "node:process";
-
+import type { Server as BunServer } from "bun"
 
 if (!['node', 'deno', 'bun'].includes(ENV))
     throw new Error('Unknown environment')
@@ -11,7 +9,7 @@ if (!['node', 'deno', 'bun'].includes(ENV))
 type Servers = {
     node: NodeServer,
     deno: Deno.HttpServer,
-    bun: ReturnType<typeof Bun.serve>
+    bun: BunServer //ReturnType<typeof Bun.serve>
 }
 
 type Server = Servers[ENV]
