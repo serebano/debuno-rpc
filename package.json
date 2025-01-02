@@ -1,6 +1,6 @@
 {
-  "name": "@debuno/rpc",
-  "version": "0.0.3",
+  "name": "debuno-rpc",
+  "version": "0.0.4",
   "module": "mod.ts",
   "type": "module",
   "repository": {
