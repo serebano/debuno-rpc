@@ -1,4 +1,4 @@
-# @debuno/rpc
+# debuno rpc
 
 ```ts
 // ./api/foo.ts
@@ -8,7 +8,7 @@ export const sayHi = (name: string) => `Hello ${name}!`;
 ```ts
 // debuno [deno/bun/node] ./server.ts
 
-import { serve } from "@debuno/rpc/serve";
+import { serve } from "jsr:@serebano/debuno-rpc/serve";
 
 await serve({
   port: 8077,

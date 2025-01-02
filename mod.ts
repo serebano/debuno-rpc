@@ -1,26 +1,30 @@
 /**
- * UPI - Universal Programming Interface
- * 
- * @description  This module provides a framework for handling API requests and responses in a dynamic and flexible manner.
- *               It includes interfaces for defining API requests and responses, utility functions for error handling,
- *               and a mechanism for creating API proxies that can dynamically invoke methods on a remote target.
- * 
- * @module upi
+ * debuno rpc
  * 
  * @example
  * ```typescript
- * import upi from '@serebano/upi';
+ * // ./api/foo.ts
  * 
- * const api = upi('http://example.com/api');
- * const result = await api.someMethod('arg1', 'arg2');
+ * export const sayHi = (name: string) => `Hello ${name}!`;
  * ```
  * 
- * @example
  * ```typescript
- * import upi from '@serebano/upi';
+ * // debuno [deno/bun/node] ./server.ts
  * 
- * const api = upi('file://./myModule.ts');
- * const result = await api.someMethod('arg1', 'arg2');
+ * import { serve } from "jsr:@serebano/debuno-rpc/serve";
+ * 
+ * await serve({
+ *   port: 8077,
+ *   path: "./api",
+ * });
+ * ```
+ * 
+ * ```typescript
+ * // debuno [deno/bun/node] ./client.ts
+ * 
+ * import { sayHi } from "http://localhost:8077/foo.ts";
+ * 
+ * console.log(await sayHi("World"));
  * ```
  */
 
