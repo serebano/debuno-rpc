@@ -240,10 +240,9 @@ export function createRequestHandler(ctx: HandlerContext): (request: Request) =>
     return async function requestHandler(request: Request) {
 
         const url = new URL(request.url)
-        const modPath = [ctx.path, url.pathname].join('')
-        const resolvedModPath = modPath //import.meta.resolve(modPath)
-        const userAgent = request.headers.get('User-Agent')
-        const isRPCAgent = userAgent?.startsWith(RPC_USER_AGENT)
+        const modPath = new URL([ctx.path, url.pathname].join(''), 'file://').href
+        // const userAgent = request.headers.get('User-Agent')
+        // const isRPCAgent = userAgent?.startsWith(RPC_USER_AGENT)
 
         if (url.pathname === '/favicon.ico') {
             return new Response(null, { status: 204 })
@@ -251,8 +250,7 @@ export function createRequestHandler(ctx: HandlerContext): (request: Request) =>
 
         console.log(`[${request.method}]`, {
             http: request.url,
-            file: resolvedModPath,
-            isRPCAgent
+            file: modPath
         })
 
         if (request.method === 'POST') {
@@ -303,7 +301,7 @@ export function createRequestHandler(ctx: HandlerContext): (request: Request) =>
                     }
                 })
             } catch (error: any) {
-                return Response.json({ error: error.message, modPath }, { status: 500 })
+                return Response.json({ error: error, modPath }, { status: 500 })
             }
         }
 

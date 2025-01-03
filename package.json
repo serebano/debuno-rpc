@@ -1,6 +1,6 @@
 {
   "name": "debuno-rpc",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "module": "mod.ts",
   "type": "module",
   "repository": {
@@ -9,11 +9,21 @@
   },
   "homepage": "https://debuno.dev/rpc",
   "exports": {
-    ".": "./mod.ts",
-    "./serve": "./serve.ts",
-    "./serve/deno": "./serve/deno.ts",
-    "./serve/bun": "./serve/bun.ts",
-    "./serve/node": "./serve/node.ts"
+    ".": {
+      "import": "./mod.ts"
+    },
+    "./serve": {
+      "import": "./serve.ts"
+    },
+    "./serve/deno": {
+      "import": "./serve/deno.ts"
+    },
+    "./serve/bun": {
+      "import": "./serve/bun.ts"
+    },
+    "./serve/node": {
+      "import": "./serve/node.ts"
+    }
   },
   "publishConfig": {
     "access": "public"
