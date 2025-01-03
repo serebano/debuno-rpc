@@ -9,7 +9,7 @@ if (!['node', 'deno', 'bun'].includes(ENV))
 type Servers = {
     node: NodeServer,
     deno: Deno.HttpServer,
-    bun: BunServer //ReturnType<typeof Bun.serve>
+    bun: BunServer
 }
 
 type Server = Servers[ENV]
@@ -25,7 +25,10 @@ export const writeFile: Serve['writeFile'] = serveModule.writeFile
 export async function serve(options: ServeOptions): Promise<Server> {
 
     const start = performance.now()
-    options.path = resolvePath(options.path)
+    // options.path = resolvePath(options.path)
+    options.path = await import('node:path').then((m) => m.resolve(options.path))
+    options.hostname = options.hostname || '0.0.0.0'
+    options.port = options.port || 8077
 
     const files = await serveModule.readDir(options.path)
 

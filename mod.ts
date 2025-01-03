@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-explicit-any
 /**
  * debuno rpc
  * 
@@ -28,10 +29,10 @@
  * ```
  */
 
-export const UPI_ID_HEADER = 'X-UPI-ID';
-export const UPI_USER_AGENT = 'UPI/1.0';
+export const RPC_ID_HEADER = 'X-DEBUNO-RPC-ID';
+export const RPC_USER_AGENT = 'DEBUNO-RPC/1.0';
 
-export default upi;
+export default rpc;
 
 /**
  * Creates a proxy for a given URL input based on its protocol.
@@ -47,8 +48,9 @@ export default upi;
  * - 'file:'
  */
 
-export function upi<T extends UPITarget>(input: string | URL): T {
-    const url = new URL(input)
+export function rpc<T extends RPCTarget>(input: string | URL): T {
+    // console.log('rpc', input, import.meta.url)
+    const url = new URL(input, import.meta.url)
 
     switch (url.protocol) {
         case 'http:':
@@ -71,7 +73,7 @@ export function upi<T extends UPITarget>(input: string | URL): T {
  * @returns A function that takes a context and a request, imports the specified module,
  *          and handles the request using the imported module.
  */
-export function createLocalHandler(input: string | URL): UPIHandler {
+export function createLocalHandler(input: string | URL): RPCHandler {
     return async function localHandler(_, request) {
         const url = import.meta.resolve(String(input))
         const mod = await import(url)
@@ -88,16 +90,16 @@ export function createLocalHandler(input: string | URL): UPIHandler {
  * @param input - The URL or string to which the POST request will be sent.
  * @returns A function that handles the fetch request and returns the JSON response.
  *
- * @throws Will throw an error if the fetch request fails or if the response contains an invalid UPI ID header.
+ * @throws Will throw an error if the fetch request fails or if the response contains an invalid RPC ID header.
  */
-export function createFetchHandler(input: string | URL): UPIHandler {
+export function createFetchHandler(input: string | URL): RPCHandler {
     return async function fetchHandler(_, request) {
         const response = await fetch(input, {
             method: 'POST',
             headers: {
-                'User-Agent': UPI_USER_AGENT,
+                'User-Agent': RPC_USER_AGENT,
                 'Content-Type': 'application/json',
-                [UPI_ID_HEADER]: request.id,
+                [RPC_ID_HEADER]: request.id,
             },
             body: JSON.stringify({
                 path: request.path,
@@ -108,8 +110,8 @@ export function createFetchHandler(input: string | URL): UPIHandler {
         if (!response.ok)
             throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`);
 
-        if (response.headers.get(UPI_ID_HEADER) !== request.id)
-            throw new Error(`Invalid response: ${response.status}} { req=${request.id}, res=${response.headers.get(UPI_ID_HEADER)} }`);
+        if (response.headers.get(RPC_ID_HEADER) !== request.id)
+            throw new Error(`Invalid response: ${response.status}} { req=${request.id}, res=${response.headers.get(RPC_ID_HEADER)} }`);
 
         return await response.json()
     }
@@ -120,7 +122,7 @@ export function createFetchHandler(input: string | URL): UPIHandler {
  *
  * @template T - The type of the API target.
  * @param {T} target - The API target object to be proxied.
- * @param {UPIHandler} handler - The handler function that processes API requests.
+ * @param {RPCHandler} handler - The handler function that processes API requests.
  * @returns {T} - A proxied version of the target object.
  *
  * @throws {UndefinedNotAllowedError} - If any of the arguments passed to the proxied function are `undefined`.
@@ -131,25 +133,28 @@ export function createFetchHandler(input: string | URL): UPIHandler {
  * const result = await api.someMethod('arg1', 'arg2');
  * ```
  */
-export function proxy<T extends UPITarget>(target: T, handler: UPIHandler): T {
+export function proxy<T extends RPCTarget>(target: T, handler: RPCHandler): T {
 
     function createProxyHandler(path: string[]): ProxyHandler<any> {
+
         const proxyHandler: ProxyHandler<any> = {
             apply: (target, thisArg, argArray) => Reflect.apply(target, thisArg, argArray),
             get(_, prop: string) {
-                path = [...path, prop];
+                // console.log('prop', prop, path)
+
+                // path = [...path, prop];
                 return new Proxy(async (...args: any[]): Promise<any> => {
                     if (args.includes(undefined))
                         throw new UndefinedNotAllowedError(`${prop}: undefined not allowed, use null instead`);
 
-                    const req: UPIRequest = { id: uid(), path, args };
-                    const res: UPIResponse = await handler(target, req);
+                    const req: RPCRequest = { id: uid(), path: [...path, prop], args };
+                    const res: RPCResponse = await handler(target, req);
 
                     if (res.error)
                         throw stringToError(res.error);
 
                     return res.result;
-                }, createProxyHandler(path));
+                }, createProxyHandler([...path, prop]));
             }
             // TODO: Add support for setting properties on the target object.
         };
@@ -169,7 +174,7 @@ export function proxy<T extends UPITarget>(target: T, handler: UPIHandler): T {
  *
  * @throws Will return an error response if the specified method is not found on the target object.
  */
-export async function handle(target: UPITarget, request: UPIRequest): Promise<UPIResponse> {
+export async function handle(target: RPCTarget, request: RPCRequest): Promise<RPCResponse> {
     const path = [...request.path || []];
     const prop = path.pop();
     const func = (prop
@@ -203,7 +208,7 @@ export async function handle(target: UPITarget, request: UPIRequest): Promise<UP
 
 /** 
  * ----------------------------------------------------------------------------
- * UPI Serve
+ * RPC Serve
  * ----------------------------------------------------------------------------
  */
 
@@ -218,7 +223,7 @@ export type ServeModule<T = any> = {
 
 export type ServeOptions = {
     path: string
-    port: number,
+    port?: number,
     hostname?: string,
     onListen?: (addr: { port: number, hostname: string }) => void,
     onError?: (error: Error) => void
@@ -236,89 +241,65 @@ export function createRequestHandler(ctx: HandlerContext): (request: Request) =>
 
         const url = new URL(request.url)
         const modPath = [ctx.path, url.pathname].join('')
-        const resolvedModPath = import.meta.resolve(modPath)
+        const resolvedModPath = modPath //import.meta.resolve(modPath)
         const userAgent = request.headers.get('User-Agent')
-        const isUPIAgent = userAgent?.startsWith(UPI_USER_AGENT)
+        const isRPCAgent = userAgent?.startsWith(RPC_USER_AGENT)
 
         if (url.pathname === '/favicon.ico') {
             return new Response(null, { status: 204 })
         }
 
-        if (request.method === 'GET' && url.pathname.startsWith('/upi')) {
-
-            const basePath = resolvePath('dist', import.meta.dirname)
-            // const filePath = (basePath + url.pathname.slice(4)).replace('/dist/dist', '/dist').replace('/src/src', '/src')
-            let filePath = ''
-
-            if (url.pathname === '/upi' || url.pathname === '/upi.js') {
-                filePath = import.meta.resolve('../dist/mod.js') //resolvePath('dist/mod.js', import.meta.dirname)
-            }
-
-            if (url.pathname === '/upi.d.ts') {
-                filePath = import.meta.resolve('../dist/mod.d.ts') //resolvePath('dist/mod.js', import.meta.dirname)
-            }
-
-            if (url.pathname === '/upi.ts') {
-                filePath = import.meta.url //resolvePath('dist/mod.js', import.meta.dirname)
-            }
-
-            const dtsFile = url.pathname.endsWith('.ts') ? '' : url.pathname.replace('.js', '') + '.d.ts'
-
-            try {
-                return new Response(await ctx.readFile(filePath), {
-                    status: 200,
-                    headers: {
-                        'Content-Type': url.pathname.endsWith('.ts') ? 'application/typescript' : 'application/javascript',
-                        'X-Typescript-Types': dtsFile
-                    }
-                })
-            } catch (error: any) {
-                return new Response(error.message, { status: 404 })
-            }
-
-        }
-
         console.log(`[${request.method}]`, {
             http: request.url,
             file: resolvedModPath,
-            isUPIAgent
+            isRPCAgent
         })
 
         if (request.method === 'POST') {
-            const req = await request.json() as UPIRequest
+            const req = await request.json() as RPCRequest
             const mod = await import(modPath)
             const res = await handle(mod, req)
-            console.log('(POST)', { req, mod, res })
+
+            // console.log('(POST)', { req, mod, res })
+
             return Response.json(res, {
                 status: 200,
                 headers: {
                     'Content-Type': 'application/json',
-                    [UPI_ID_HEADER]: request.headers.get(UPI_ID_HEADER) || ''
+                    [RPC_ID_HEADER]: request.headers.get(RPC_ID_HEADER) || ''
                 }
             })
         }
 
         if (request.method === 'GET') {
             if (url.pathname.endsWith('/')) {
-                const files = (await ctx.readDir(modPath)).map(file => url + file)
+                const files = (await ctx.readDir(modPath)).map(file => new URL(file, url).href)
 
-                return Response.json({ modPath, files })
+                return Response.json({ env: getEnv(), path: modPath, files })
+            }
+
+            if (url.pathname === '/rpc.ts') {
+                return new Response(await ctx.readFile(import.meta.url), {
+                    status: 200,
+                    headers: {
+                        'Content-Type': 'application/typescript',
+                        [RPC_ID_HEADER]: request.headers.get(RPC_ID_HEADER) || ''
+                    }
+                })
             }
 
             try {
-                const _modPath = url.pathname.endsWith('.d.ts') ? modPath.replace('.d.ts', '.ts') : modPath
-                const module = url.pathname.endsWith('.d.ts')
-                    ? await ctx.readFile(_modPath)
-                    : modTemplate(url, await import(_modPath))
+                const raw = url.searchParams.has('raw')
+
+                const module = raw
+                    ? await ctx.readFile(modPath)
+                    : modTemplate(url, await import(modPath))
 
                 return new Response(module, {
                     status: 200,
                     headers: {
                         'Content-Type': url.pathname.endsWith('.ts') ? 'application/typescript' : 'application/javascript',
-                        [UPI_ID_HEADER]: request.headers.get(UPI_ID_HEADER) || '',
-                        'x-typescript-types': url.pathname.endsWith('.ts')
-                            ? ''
-                            : url.pathname.replace('.js', '').replace('.mjs', '') + '.d.ts'
+                        [RPC_ID_HEADER]: request.headers.get(RPC_ID_HEADER) || ''
                     }
                 })
             } catch (error: any) {
@@ -333,28 +314,32 @@ export function createRequestHandler(ctx: HandlerContext): (request: Request) =>
 
 export function modTemplate(url: string | URL, mod: any): string {
     url = new URL(url)
-    const modUrl = `.${url.pathname.replace('.ts', '.mod.ts')}`
+
     const keys = Object.keys(mod).filter(key => key !== 'default')
-    const types = url.pathname.endsWith('.ts') ? `as typeof import('${url.href.replace('.ts', '.d.ts')}')` : ''
-    let libUrl = new URL(url)
-    libUrl.pathname = '/upi'
-    const importUPI = libUrl.href //['browser', 'deno'].includes(getEnv()) ? '/upi' : '/upi' //xxw?v=' + Date.now()
+
+    let types = ''
+    if (url.pathname.endsWith('.ts')) {
+        const typesUrl = new URL(url)
+        typesUrl.searchParams.set('raw', '')
+        types = ` as typeof import('${typesUrl.pathname}${typesUrl.search}')`
+    }
 
     const template = `
-        // ${getEnv()} ${url.pathname}
-        import upi from "${importUPI}";
+        // served by ${getEnv()} at ${url.href}
+        import rpc from "/rpc.ts";
 
-        const mod = upi('${url}') ${types}
+        const mod = rpc('${url.pathname}${url.search}')${types}
 
         export const { ${keys.join(', ')} } = mod
-        export default ${mod.default ? 'mod.default' : `mod`}`;
+        export default ${mod.default ? 'mod.default' : `mod`}
+    `;
 
-    return template.split('\n').map(line => line.trim()).join('\n')
+    return template.trim().split('\n').map(line => line.trim()).join('\n')
 }
 
 
 /**
- * UPI Utils
+ * RPC Utils
  */
 
 
@@ -387,7 +372,7 @@ export type ENV = Global['Bun'] extends undefined
 export const IS_BROWSER: boolean = 'window' in globalThis
 export const IS_DENO: boolean = 'Deno' in globalThis
 export const IS_BUN: boolean = "Bun" in globalThis
-// @ts-ignore
+// @ts-ignore .
 export const IS_NODE: boolean = !IS_BUN && !IS_DENO && ('process' in globalThis) && !!get(globalThis, 'process.versions.node')
 
 export const ENV = getEnv() as ENV
@@ -459,8 +444,8 @@ export function errorToString(error: Error): string {
  * @returns The Error object.
  */
 export function stringToError(s: string): Error {
-    let [nameMessage, ...stack] = s.split('\n');
-    let [name, message] = nameMessage.split(': ');
+    const [nameMessage, ...stack] = s.split('\n');
+    const [name, message] = nameMessage.split(': ');
     let error = new Error();
     let matched = false;
     for (let errorClass of ERROR_CLASSES) {
@@ -487,18 +472,18 @@ export function stringToError(s: string): Error {
 
 /**
  * ----------------------------------------------------------------------------
- * UPI Types
+ * RPC Types
  */
 
 /**
  * Represents an API request.
  * 
- * @interface UPIRequest
+ * @interface RPCRequest
  * @property {string} id - The unique identifier for the API request.
  * @property {string[]} path - The path segments of the API endpoint.
  * @property {any[]} args - The arguments to be passed with the API request.
  */
-export interface UPIRequest {
+export interface RPCRequest {
     id: string
     path: string[]
     args: any[]
@@ -507,13 +492,13 @@ export interface UPIRequest {
 /**
  * Represents the response from an API call.
  * 
- * @interface UPIResponse
+ * @interface RPCResponse
  * @property {string} id - The unique identifier for the API response.
  * @property {string[]} path - The path segments of the API endpoint.
  * @property {any} [result] - The result of the API call, if successful.
  * @property {string} [error] - The error message, if the API call failed.
  */
-export interface UPIResponse {
+export interface RPCResponse {
     id: string
     path: string[]
     result?: any
@@ -526,7 +511,7 @@ export interface UPIResponse {
  * @property {string} key - The key representing the target.
  * @property {any} value - The value associated with the key.
  */
-export type UPITarget = Record<string, any>;
+export type RPCTarget = Record<string, any>;
 
 /**
  * Represents a handler function for API requests.
@@ -535,4 +520,4 @@ export type UPITarget = Record<string, any>;
  * @param request - The API request object.
  * @returns A promise that resolves to an API response.
  */
-export type UPIHandler = (target: UPITarget, request: UPIRequest) => Promise<UPIResponse>;
+export type RPCHandler = (target: RPCTarget, request: RPCRequest) => Promise<RPCResponse>;

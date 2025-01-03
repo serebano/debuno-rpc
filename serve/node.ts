@@ -5,7 +5,7 @@ export const ENV = "node" as const
 
 export type NodeServeOptions = {
     hostname: string | undefined
-    port: number,
+    port?: number,
     fetch: (request: Request) => Promise<Response> | Response,
     onListen?: (addr: { port: number, hostname: string }) => void,
     onError?: (error: Error) => void
@@ -14,7 +14,7 @@ export type NodeServeOptions = {
 const Node = {
     async serve(options: NodeServeOptions): Promise<Server> {
         const { createServer } = await import('node:http')
-        const { createServerAdapter } = await import('@whatwg-node/server')
+        const { createServerAdapter } = await import('npm:@whatwg-node/server@0.9.65')
 
         const nodeRequestHandler = createServerAdapter(options.fetch)
         const server = createServer(nodeRequestHandler)
@@ -30,6 +30,7 @@ const Node = {
     }
 
 }
+
 export function serve(options: ServeOptions): Promise<Server> {
     const { port, path, hostname } = options
 
@@ -78,5 +79,7 @@ export async function readDir(dirPath: string): Promise<string[]> {
 
     return entries
         .filter(entry => entry.isFile())
-        .map(entry => (entry.parentPath + '/' + entry.name).replace(dirPath.endsWith('/') ? dirPath : dirPath + '/', ''))
+        .map(entry => (entry.parentPath.endsWith('/') ? entry.parentPath : entry.parentPath + "/") + entry.name)
+        .map(filePath => filePath.replace(dirPath, ''))
+        .map(filePath => filePath.startsWith('/') ? filePath.slice(1) : filePath) //.replace(dirPath.endsWith('/') ? dirPath : dirPath + '/', ''))
 }

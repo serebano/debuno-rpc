@@ -32,7 +32,10 @@ export function writeFile(filePath: string, data: Uint8Array | string): Promise<
 export async function readDir(dirPath: string): Promise<string[]> {
     //@ts-ignore .
     const { walk } = await import("jsr:@std/fs@1.0.8/walk")
-    const dirs = await Array.fromAsync(walk(dirPath.replace('file://', '')));
+    dirPath = dirPath.replace('file://', '')
+    const dirs = await Array.fromAsync(walk(dirPath));
 
-    return dirs.filter((dir: any) => dir.isFile).map((file: any) => file.path.replace(dirPath.replace('file://', '') + '/', ''));
+    return dirs.filter((dir: any) => dir.isFile)
+        .map((file: any) => file.path.replace(dirPath, ''))
+        .map(filePath => filePath.startsWith('/') ? filePath.slice(1) : filePath)
 }
