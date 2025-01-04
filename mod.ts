@@ -50,7 +50,7 @@ export default rpc;
 
 export function rpc<T extends RPCTarget>(input: string | URL): T {
     // console.log('rpc', input, import.meta.url)
-    const url = new URL(input, import.meta.url)
+    const url = new URL(input)
 
     switch (url.protocol) {
         case 'http:':
@@ -276,7 +276,7 @@ export function createRequestHandler(ctx: HandlerContext): (request: Request) =>
                 return Response.json({ env: getEnv(), path: modPath, files })
             }
 
-            if (url.pathname === '/rpc.ts') {
+            if (url.pathname === '/mod.ts') {
                 return new Response(await ctx.readFile(import.meta.url), {
                     status: 200,
                     headers: {
@@ -319,14 +319,16 @@ export function modTemplate(url: string | URL, mod: any): string {
     if (url.pathname.endsWith('.ts')) {
         const typesUrl = new URL(url)
         typesUrl.searchParams.set('raw', '')
-        types = ` as typeof import('${typesUrl.pathname}${typesUrl.search}')`
+        types = ` as typeof import('${typesUrl}')`
     }
+
+    const modUrl = import.meta.url.startsWith('file://') ? '/mod.ts' : import.meta.url
 
     const template = `
         // served by ${getEnv()} at ${url.href}
-        import rpc from "/rpc.ts";
+        import rpc from "${modUrl}";
 
-        const mod = rpc('${url.pathname}${url.search}')${types}
+        const mod = rpc('${url}')${types}
 
         export const { ${keys.join(', ')} } = mod
         export default ${mod.default ? 'mod.default' : `mod`}

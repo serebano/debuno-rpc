@@ -43,7 +43,8 @@ export async function serve(options: ServeOptions): Promise<Server> {
                 url: `http://${addr.hostname}:${addr.port}`,
                 path: (options.path),
                 files,
-                took: `${took}ms`
+                took: `${took}ms`,
+                meta: import.meta
             })
             options.onListen?.(addr)
         },
