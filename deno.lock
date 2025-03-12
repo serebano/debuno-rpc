@@ -1,0 +1,111 @@
+{
+  "version": "4",
+  "specifiers": {
+    "jsr:@std/fs@1.0.0": "1.0.0",
+    "jsr:@std/path@^1.0.2": "1.0.8",
+    "npm:@oxc-project/types@0.51.0": "0.51.0",
+    "npm:@types/node@*": "22.12.0",
+    "npm:oxc-parser@0.51.0": "0.51.0",
+    "npm:oxc-transform@0.51.0": "0.51.0"
+  },
+  "jsr": {
+    "@std/fs@1.0.0": {
+      "integrity": "d72e4a125af7168d717a2ed1dca77a728b422b0d138fd20579e3fa41a77da943",
+      "dependencies": [
+        "jsr:@std/path"
+      ]
+    },
+    "@std/path@1.0.8": {
+      "integrity": "548fa456bb6a04d3c1a1e7477986b6cffbce95102d0bb447c67c4ee70e0364be"
+    }
+  },
+  "npm": {
+    "@oxc-parser/binding-darwin-arm64@0.51.0": {
+      "integrity": "sha512-/e7+bNVVLm35qFToVjRzFpYpEXc6JYl2UOBGKwxmGovby8zWyeO+AlvX93JawVbk9+ht/VxJuXS27KHxsedqqw=="
+    },
+    "@oxc-parser/binding-darwin-x64@0.51.0": {
+      "integrity": "sha512-xRV6ZBA/bBPriRtxC2c3rl1PNeKmXYfZtujwciNkLTaneOYzKuatYV1FHJFgSzLRod/oaEeSwn3q/uYd77vwYQ=="
+    },
+    "@oxc-parser/binding-linux-arm64-gnu@0.51.0": {
+      "integrity": "sha512-WgScqMulaLtNhtKRYsOrY8WI5Apt/wjuvpc/2axE5hdZBsvB5aDgaGig8MYPHHuQWPeH4ennizKrL3UMKZZpBA=="
+    },
+    "@oxc-parser/binding-linux-arm64-musl@0.51.0": {
+      "integrity": "sha512-Dt8JvLI53JsfJ3ewb1WNgarVfkCUA9kK39peJPNFrUZ0D3T+ja4Ibc/4eN9/sAr+iqRL/ocWxts8ZAqt4ntbCA=="
+    },
+    "@oxc-parser/binding-linux-x64-gnu@0.51.0": {
+      "integrity": "sha512-R6l1s51v119bsPETpcka1AE+lKoPI8NFzdUWFxv/cqc8jzRwpSVu4LsItKWdLFjiBGxj4D8NbsmOVm9G+QMofQ=="
+    },
+    "@oxc-parser/binding-linux-x64-musl@0.51.0": {
+      "integrity": "sha512-Tu3L7MneVq6tm7x8oBB4Bvg74J6xhyU2b6vbaEK9CSHFmHssSfITs8aDxX/ZAboiXZe3fBYGqHT6gbcUfHxRGQ=="
+    },
+    "@oxc-parser/binding-win32-arm64-msvc@0.51.0": {
+      "integrity": "sha512-VQJMqPUn6/qN8tNV54UW9m4125+gbmgtzOBCTAkuKjSRZ+efpSScWp6TNYX3A4ZzeBl/7N7TbxvXQYasbNj94A=="
+    },
+    "@oxc-parser/binding-win32-x64-msvc@0.51.0": {
+      "integrity": "sha512-60OTzCk9N8V6hJfBL/4EfeSmZUdrf6TuRRK6lpJcwIJJb/Y8G8vIBnKhkjo/CGJPJEuGOo1+oAJ/g+hdtiKTCQ=="
+    },
+    "@oxc-project/types@0.51.0": {
+      "integrity": "sha512-rDHFQBU2lS0Fh1t1rgvSWK21OfgkzjIWqj+FKKRJueecgvdZ6hO+qqstwBy2v9lFhg2DPuaDdLyCXZNGwsKjMw=="
+    },
+    "@oxc-transform/binding-darwin-arm64@0.51.0": {
+      "integrity": "sha512-HYZzgm/lCUAJP7Ya9IXbqb5t5gNo33tR9rmMr2RslgmkcxsEku1nCWDuZezdhYEuvrhnzwGnwmqK25dvwSCN4g=="
+    },
+    "@oxc-transform/binding-darwin-x64@0.51.0": {
+      "integrity": "sha512-GB57jsdGN2UQPLlZFrzopUHiC9DZqZvQpErwNEoIuan2DJeYNvxppI7Jgv4HH735KgZuMi+a/39/cNjroDpq5w=="
+    },
+    "@oxc-transform/binding-linux-arm64-gnu@0.51.0": {
+      "integrity": "sha512-qmD8PqpBEdQLJzhEonna21G2sazGGoEXMfGxiMEOQcbJcKTdZPBwzEI1LqwHzMDIZ9m6bUevoIKsPECkdbPJ2A=="
+    },
+    "@oxc-transform/binding-linux-arm64-musl@0.51.0": {
+      "integrity": "sha512-9LUaIDFBORKGz3mluTB+BcFQQX8zSgG23mFDrNXRlE9VBZkn54NCMN8LX5W51/Uxo4FJmlj5GYcjmmplgfTsRQ=="
+    },
+    "@oxc-transform/binding-linux-x64-gnu@0.51.0": {
+      "integrity": "sha512-RQSjTs2PAtIirnHYbNW6TyD6aaUxXzcYM4h1k/Q6MhPzRUxwNot5iSN7jUOcyX+eM8YtoVvwJdXgciaoBYC7lQ=="
+    },
+    "@oxc-transform/binding-linux-x64-musl@0.51.0": {
+      "integrity": "sha512-q/0q3UGbU31dJaV/ZOL5bwiWXMol51mdOm7m1zPN49dmPv+yDXQpK94v5gqbWnw/jgGgMSWynAjsh0BQXrgWMA=="
+    },
+    "@oxc-transform/binding-win32-arm64-msvc@0.51.0": {
+      "integrity": "sha512-Z/cdSIRWCeBSqCZAOg+hm082g+RNVfzrG73yYXLo++yG1+Fdf5GfS0Y2BRS1XgKxowTqKKYr2A+RILLYo20hMw=="
+    },
+    "@oxc-transform/binding-win32-x64-msvc@0.51.0": {
+      "integrity": "sha512-Frw6EdCSotGMMBh5kSaJhhhQySHelTR/wKigZ55g9UL8I4UHKzzPSNqbQN1yGSeqt3ghnVYFFzdz/+WpGQqgnw=="
+    },
+    "@types/node@22.12.0": {
+      "integrity": "sha512-Fll2FZ1riMjNmlmJOdAyY5pUbkftXslB5DgEzlIuNaiWhXd00FhWxVC/r4yV/4wBb9JfImTu+jiSvXTkJ7F/gA==",
+      "dependencies": [
+        "undici-types"
+      ]
+    },
+    "oxc-parser@0.51.0": {
+      "integrity": "sha512-IXcs/e4cFoAogqCGqzrUI0jWxktAb89qVqFcHZLxAWkQU4QoO1IKDsaSvG03Uw/7WUcp7QMR1b92D9GnsSFIBQ==",
+      "dependencies": [
+        "@oxc-parser/binding-darwin-arm64",
+        "@oxc-parser/binding-darwin-x64",
+        "@oxc-parser/binding-linux-arm64-gnu",
+        "@oxc-parser/binding-linux-arm64-musl",
+        "@oxc-parser/binding-linux-x64-gnu",
+        "@oxc-parser/binding-linux-x64-musl",
+        "@oxc-parser/binding-win32-arm64-msvc",
+        "@oxc-parser/binding-win32-x64-msvc",
+        "@oxc-project/types"
+      ]
+    },
+    "oxc-transform@0.51.0": {
+      "integrity": "sha512-5hmju6LD5cGXWzvweduIg9hCcBKWMIq2ILvwwiKEgb03cxPoKYsx65FfITJPVOkBzHFYRGri2AXo/mY1DJRmJQ==",
+      "dependencies": [
+        "@oxc-transform/binding-darwin-arm64",
+        "@oxc-transform/binding-darwin-x64",
+        "@oxc-transform/binding-linux-arm64-gnu",
+        "@oxc-transform/binding-linux-arm64-musl",
+        "@oxc-transform/binding-linux-x64-gnu",
+        "@oxc-transform/binding-linux-x64-musl",
+        "@oxc-transform/binding-win32-arm64-msvc",
+        "@oxc-transform/binding-win32-x64-msvc"
+      ]
+    },
+    "undici-types@6.20.0": {
+      "integrity": "sha512-Ny6QZ2Nju20vw1SRHe3d9jVu6gJ+4e3+MMpqu7pqE5HT6WsTSlce++GQmK5UXS8mzV8DSYHrQH+Xrf2jVcuKNg=="
+    }
+  }
+}
