@@ -1,3 +1,14 @@
+export interface RPCContext {
+    call<T>(path: string, ...args: any[]): Promise<T>
+}
+
+export function create(url: string): RPCContext {
+    return {
+        call(path, ...args) {
+            return call(url, path, ...args)
+        }
+    }
+}
 /**
  * Calls a remote procedure by sending a POST request with the function name and arguments.
  *

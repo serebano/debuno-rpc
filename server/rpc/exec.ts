@@ -9,11 +9,10 @@ export async function exec(request: Request, filePath: string, fileVersion?: Rec
     try {
         filePath = filePath.startsWith('file') ? filePath : 'file://' + filePath
         const { path, args } = await request.json() as { path: string; args: any[]; };
-        if (fileVersion) {
-            const ver = fileVersion[filePath]
-            if (ver) {
-                filePath = filePath + "?ver=" + ver
-            }
+        const version = new URL(request.url).searchParams.get('version')
+        if (version) {
+            filePath = filePath + "?version=" + version
+
         }
 
         const arrPath = path.split('.');

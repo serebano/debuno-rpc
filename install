@@ -1,0 +1,18 @@
+#!/bin/sh
+
+function install() {
+    BASE=$(dirname $(realpath $0))
+
+    EXE_LINK=$HOME/.deno/bin/rpc
+    EXE_FILE=$BASE/server.sh
+
+    chmod +x $EXE_FILE
+
+    if [ -L $EXE_LINK ]; then rm $EXE_LINK; fi
+
+    ln -s $EXE_FILE $EXE_LINK;
+
+    echo "Installed at $EXE_LINK"
+}
+
+install;

@@ -4,7 +4,7 @@ export async function read({ filePath, fileType, transform, url, request }: {
     url: string,
     request: Request,
     filePath: string,
-    fileType?: 'javascript' | 'typescript',
+    fileType?: 'javascript' | 'typescript' | 'json',
     transform?: (sourceCode: string, filePath: string, url: string, req: Request) => string | Response | Promise<string | Response>
 }): Promise<Response> {
     filePath = filePath.startsWith('file') ? filePath : 'file://' + filePath

@@ -7,17 +7,18 @@ export async function transform(fileName: string, code: string, options?: {
     format?: 'javascript' | 'typescript'
     fileName?: string
     sourceMap?: boolean
-    callImportName?: string
-    callImportUrl?: string
+    rpcImportUrl?: string
+    hotImportUrl?: string
 
 }): Promise<{ errors: OxcError[]; code: string; source: { code: string, map?: any } }> {
 
-    const CALL_IMPORT_NAME = options?.callImportName || '$call'
-    const CALL_IMPORT_URL = options?.callImportUrl || `data:text/javascript;base64,${btoa('export default ' + (await import('./call.ts')).default + `\n//# sourceURL=/call.js`)}`
+    const RPC_IMPORT_URL = options?.rpcImportUrl || `/@client/rpc` //`data:text/javascript;base64,${btoa('export ' + (await import('../../client/rpc.ts')).create + `\n//# sourceURL=/rpc.js`)}`
+    const HOT_IMPORT_URL = options?.hotImportUrl || `/@client/hot` //`data:text/javascript;base64,${btoa('export ' + (await import('../../client/hot.ts')).create + `\n//# sourceURL=/hot.js`)}`
 
-    // const CALL_IMPORT_DECL = `import ${CALL_IMPORT_NAME} from '${CALL_IMPORT_URL}'\n`
-    const RPC_CREATE = `import.meta.rpc = (await import('${CALL_IMPORT_URL}')).create(import.meta.url) }\n`
-    const RPC_CALL = (...args: any[]) => `import.meta.rpc(${args.join(', ')})`
+    const RPC_CREATE = `import.meta.rpc = (await import('${RPC_IMPORT_URL}')).create(import.meta.url);`
+    const HOT_CREATE = `import.meta.hot = (await import('${HOT_IMPORT_URL}')).create(import.meta.url);`
+
+    const RPC_CALL = (...args: any[]) => `import.meta.rpc.call(${args.join(', ')})`
 
     console.log(`transform > ${fileName} (${options?.format})`)
 
@@ -238,8 +239,13 @@ export async function transform(fileName: string, code: string, options?: {
         }
     }
 
-    if (magicString.hasChanged())
-        magicString.prepend(RPC_CREATE)
+    const sourceCode = magicString.toString()
+
+    if (sourceCode.includes('import.meta.rpc'))
+        magicString.prepend(RPC_CREATE + '\n')
+
+    if (sourceCode.includes('import.meta.hot'))
+        magicString.prepend(HOT_CREATE + '\n')
 
     if (options?.sourceMap === true) {
         const sourceMappingURL = magicString.generateMap({

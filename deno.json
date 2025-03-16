@@ -5,5 +5,8 @@
         ".": "./mod.ts",
         "./*": "./src/"
     },
+    "imports": {
+        "/@lib/hot": "/Users/serebano/dev/create-debuno-tmp/rpc-1/lib/hot.ts"
+    },
     "nodeModulesDir": "auto"
 }
