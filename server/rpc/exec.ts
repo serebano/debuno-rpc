@@ -18,7 +18,8 @@ export async function exec(request: Request, filePath: string, fileVersion?: Rec
         const arrPath = path.split('.');
         const name = arrPath.pop() as string;
 
-        console.log(`exec(${filePath}, ${path})`, args);
+        console.log(`exec( ${filePath} )`);
+        console.log(`  * apply( ${path},`, args, `)`)
 
         const module = await import(filePath);
         const target = arrPath.reduce((o, i) => o[i], module);

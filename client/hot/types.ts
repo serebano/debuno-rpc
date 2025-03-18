@@ -1,11 +1,5 @@
 export type CustomListenersMap = Map<string, ((data: any) => void)[]>
 
-// export interface HotUpdate {
-//     path: string
-//     version: number
-//     acceptedPath: string
-// }
-
 export interface Update {
     // The type of update
     type: 'js-update' | 'css-update'
@@ -50,12 +44,7 @@ export interface HMRLogger {
 
 
 export type HotContext = {
-    // readonly url: URL;
-    readonly module: HotModule | undefined;
-    readonly version: number | undefined;
-
-    readonly ownerPath: string
-    readonly data: any
+    readonly data: Record<string, any>
 
     accept(): void
     accept(cb: (mod: ModuleNamespace | undefined, ver: number | undefined) => void): void

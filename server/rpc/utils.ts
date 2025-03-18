@@ -1,28 +1,7 @@
 import { walk } from "jsr:@std/fs@1.0.0/walk";
 import path from "node:path";
 import { mkdir, readFile, writeFile, stat } from "node:fs/promises";
-import { transform } from "./transform.ts";
-
-const mimeTypes: Record<string, string> = {
-    "html": "text/html",
-    "css": "text/css",
-    "js": "application/javascript",
-    "json": "application/json",
-    "png": "image/png",
-    "jpg": "image/jpeg",
-    "jpeg": "image/jpeg",
-    "gif": "image/gif",
-    "svg": "image/svg+xml",
-    "pdf": "application/pdf",
-    "txt": "text/plain",
-    "mp3": "audio/mpeg",
-    "mp4": "video/mp4",
-};
-
-export function getContentType(filename: string): string {
-    const ext = filename.split('.').pop()?.toLowerCase();
-    return ext ? mimeTypes[ext] : 'text/plain';
-}
+import { transform, type RPCTransformInit } from "./transform.ts";
 
 export function parseLocation(input: string | URL): { url: string; line?: number; column?: number } {
     const url = new URL(input, "http://dummy"); // Fallback pentru parsing corect
@@ -86,14 +65,7 @@ export function resolveCallImport(input: { callImportFileName: string, callImpor
         : `./${callImportPath}`
 }
 
-export async function transformDir(srcDir: string, outDir: string, options?: {
-    sourceMap?: boolean;
-    format?: "javascript" | "typescript";
-    callImportType?: 'data' | 'file'
-    callImportName?: string
-    callImportFileName?: string
-    callImportUrl?: string
-}) {
+export async function transformDir(srcDir: string, outDir: string, options?: RPCTransformInit) {
     const start = performance.now();
 
     // srcDir = path.resolve(srcDir)
@@ -102,21 +74,21 @@ export async function transformDir(srcDir: string, outDir: string, options?: {
     options = options || {}
     options.format = options.format || 'typescript'
     // call
-    options.callImportName = options.callImportName || '__call__'
-    options.callImportFileName = options.callImportFileName || '.call.ts'
+    // options.callImportName = options.callImportName || '__call__'
+    // options.callImportFileName = options.callImportFileName || '.call.ts'
 
     const outBaseDir = options?.format === 'javascript'
         ? path.join(outDir, 'js')
         : path.join(outDir, 'ts');
 
-    if (options?.callImportType === 'file') {
-        await fetchCallImport({
-            callImportUrl: options.callImportUrl || import.meta.resolve('./call.ts'),
-            callImportDir: outBaseDir,
-            callImportFileName: options.callImportFileName,
-            format: options.format
-        })
-    }
+    // if (options?.callImportType === 'file') {
+    //     await fetchCallImport({
+    //         callImportUrl: options.callImportUrl || import.meta.resolve('./call.ts'),
+    //         callImportDir: outBaseDir,
+    //         callImportFileName: options.callImportFileName,
+    //         format: options.format
+    //     })
+    // }
 
     console.log(`Processing directory: ${srcDir} -> ${outDir} ${options.format}`);
 
@@ -130,13 +102,13 @@ export async function transformDir(srcDir: string, outDir: string, options?: {
 
         const outFile = path.join(outBaseDir, relativePath);
 
-        if (options?.callImportType === 'file') {
-            options.callImportUrl = resolveCallImport({
-                importer: outFile,
-                callImportDir: outBaseDir,
-                callImportFileName: options.callImportFileName
-            })
-        }
+        // if (options?.callImportType === 'file') {
+        //     options.callImportUrl = resolveCallImport({
+        //         importer: outFile,
+        //         callImportDir: outBaseDir,
+        //         callImportFileName: options.callImportFileName
+        //     })
+        // }
 
         await transformFile(entry.path, outFile, {
             ...options,
@@ -149,14 +121,7 @@ export async function transformDir(srcDir: string, outDir: string, options?: {
     console.log(`Time taken: `, performance.now() - start, `ms`);
 }
 
-export async function transformFile(srcFile: string, outFile: string, options?: {
-    format?: "javascript" | "typescript"
-    fileName?: string
-    sourceMap?: boolean
-    sourceFilePath?: string
-    callImportName?: string
-    callImportUrl?: string
-}) {
+export async function transformFile(srcFile: string, outFile: string, options?: RPCTransformInit & { sourceFilePath?: string }) {
     const source = await readFile(srcFile, "utf-8");
     const result = await transform(srcFile, source, options);
 

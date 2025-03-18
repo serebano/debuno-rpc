@@ -1,4 +1,4 @@
-import { getContentType } from "./utils.ts";
+import { getContentType } from "../../utils/mod.ts";
 
 export async function read({ filePath, fileType, transform, url, request }: {
     url: string,

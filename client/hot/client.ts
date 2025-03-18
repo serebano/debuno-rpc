@@ -1,28 +1,24 @@
 import { HMRClient } from "./HMRClient.ts";
 import { HMRContext } from "./HMRContext.ts";
+import type { HotContext } from "./types.ts";
 
-export function create(ownerPath: string): RPCHotContext {
-    return new HMRContext(hmrClient, ownerPath)
+export const eventSource = new EventSource(import.meta.env.BASE_URL)
+
+eventSource.addEventListener('open', (e: any) => console.log(`[rpc:sse] connected`, e.target.url))
+eventSource.addEventListener('error', (e: any) => console.log(`[rpc:sse] errored, reloading...`, e.target.url, setTimeout(() => location.reload(), 10)))
+eventSource.addEventListener('reload', (e) => e.data === currentUrl() && setTimeout(() => location.reload(), 10))
+eventSource.addEventListener('change', (e) => hmrClient.update(JSON.parse(e.data)))
+
+function currentUrl() {
+    return location.origin + (location.pathname.endsWith('/')
+        ? location.pathname + 'index.html'
+        : location.pathname)
 }
 
-export const eventSource = new EventSource(location.origin)
 
-eventSource.addEventListener('open', () => {
-    console.log(`EventSource#open`, eventSource.url)
-})
-
-eventSource.addEventListener('change', async (evm) => {
-    const e = JSON.parse(evm.data) as { url: string, version: number, timestamp: number, importer: string }[]
-    await hmrClient.update(e)
-})
-
-eventSource.addEventListener('reload', (evm) => {
-    const url = evm.data
-    const currentUrl = location.origin + (location.pathname.endsWith('/') ? location.pathname + 'index.html' : location.pathname)
-    if (url === currentUrl) {
-        pageReload()
-    }
-})
+export function create(meta: ImportMeta): HotContext {
+    return new HMRContext(hmrClient, meta.url)
+}
 
 export const hmrClient = new HMRClient(
     {
@@ -42,25 +38,10 @@ export const hmrClient = new HMRClient(
         if (isWithinCircularImport) {
             importPromise.catch(() => {
                 console.info(`[hmr] ${acceptedPath} failed to apply HMR as it's within a circular import. Reloading page to reset the execution order.`)
-                pageReload()
+                setTimeout(() => location.reload(), 50)
             })
         }
 
         return await importPromise
     },
 )
-
-const debounceReload = (time: number) => {
-    let timer: ReturnType<typeof setTimeout> | null
-    return () => {
-        if (timer) {
-            clearTimeout(timer)
-            timer = null
-        }
-        timer = setTimeout(() => {
-            location.reload()
-        }, time)
-    }
-}
-
-const pageReload = debounceReload(50)

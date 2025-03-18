@@ -3,10 +3,26 @@
     "version": "0.1.1",
     "exports": {
         ".": "./mod.ts",
-        "./*": "./src/"
+        "./server/*": "./server/",
+        "./client/*": "./client/"
     },
-    "imports": {
-        "/@lib/hot": "/Users/serebano/dev/create-debuno-tmp/rpc-1/lib/hot.ts"
+    "tasks": {
+        "build:client": "deno run -A scripts/build.client.ts"
+    },
+    "lint": {
+        "rules": {
+            "exclude": [
+                "no-explicit-any"
+            ]
+        }
+    },
+    "compilerOptions": {
+        "lib": [
+            "DOM",
+            "deno.window"
+        ],
+        "jsx": "react-jsx",
+        "jsxImportSource": "http://esm.sh/preact"
     },
     "nodeModulesDir": "auto"
 }

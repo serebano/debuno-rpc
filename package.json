@@ -1,0 +1,19 @@
+{
+    "name": "@debuno/rpc",
+    "version": "0.0.2",
+    "module": "mod.ts",
+    "type": "module",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/serebano/debuno-rpc.git"
+    },
+    "homepage": "https://rpc.debuno.dev",
+    "exports": {
+        "./client": {
+            "types": "./client.d.ts"
+        }
+    },
+    "publishConfig": {
+        "access": "public"
+    }
+}

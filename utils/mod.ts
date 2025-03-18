@@ -1,7 +1,72 @@
+import { readFileSync } from "node:fs";
 import * as meta from '../server/meta.ts'
+import process from "node:process";
+
+export function getCliArgs() {
+    const path = (process.argv.slice(2)[0]?.split(':')[0] || '.')
+    const port = parseInt(process.argv.slice(2)[0]?.split(':')[1] || '8080')
+    const base = (process.argv.slice(2)[0]?.split(':')[2] || '/')
+
+    return { path, port, base }
+}
+
+export function getDenoConfig(path: string): Record<string, any> {
+    try {
+        return JSON.parse(readFileSync(path + '/deno.json', 'utf-8'))
+    } catch {
+        return {}
+    }
+}
+
+export const formatBase = (i = "/") => !i || i === '/' ? '/' : '/' + i.split('/').filter(Boolean).join('/') + '/'
+
+export function getFileExtension(filename: string): string | null {
+    const match = filename.match(/\.([a-zA-Z0-9.]+)$/);
+    return match ? match[1] : null;
+}
+
+// Create an element with provided attributes and optional children
+export function h(
+    e: string,
+    attrs: Record<string, string> = {},
+    ...children: (string | Node)[]
+) {
+    const elem = document.createElement(e)
+    for (const [k, v] of Object.entries(attrs)) {
+        elem.setAttribute(k, v)
+    }
+    elem.append(...children)
+    return elem
+}
+
+const mimeTypes: Record<string, string> = {
+    "html": "text/html",
+    "css": "text/css",
+    "js": "application/javascript",
+    "json": "application/json",
+    "png": "image/png",
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "gif": "image/gif",
+    "svg": "image/svg+xml",
+    "pdf": "application/pdf",
+    "txt": "text/plain",
+    "mp3": "audio/mpeg",
+    "mp4": "video/mp4",
+};
+
+export function getContentType(filename: string): string {
+    const ext = filename.split('.').pop()?.toLowerCase();
+    return ext ? mimeTypes[ext] : 'text/plain';
+}
+
+export function resolvePath(fileName: string | URL, base?: string | URL) {
+    return new URL(fileName, base).pathname
+}
 
 export function moduleVersionTransform(source: string, file: string, http: string) {
-    console.log('moduleVersionTransform(', [file, http], ')')
+    console.log(`   * deps version sync`)
+    // console.log('moduleVersionTransform(', [file, http], ')')
 
     const parentUrl = new URL(http)
     const parentId = parentUrl.origin + parentUrl.pathname
@@ -37,7 +102,7 @@ export function moduleVersionTransform(source: string, file: string, http: strin
 }
 
 export function moduleHtmlTransform(source: string, file: string, http: string, req: Request) {
-    const isDocument = req.headers.get('sec-fetch-dest') === 'document'
+    const isDocument = req.headers.get('sec-fetch-dest') === 'document' || req.headers.get('x-fetch-dest') === 'document'
     const isHtml = !!(['html', 'htm'] as const).find(ext => file.endsWith('.' + ext))
 
     if (isDocument && !isHtml) {
@@ -52,7 +117,7 @@ export function moduleHtmlTransform(source: string, file: string, http: string, 
             return [
                 `<a title="Edit line ${index + 1}" href="${editLine(index + 1)}">`,
                 `<i>${index + 1}</i>`,
-                `<span>${line}</span>`,
+                `<span>${line.replaceAll('<', '&lt;').replaceAll('>', '&gt;')}</span>`,
                 `</a>`
             ].join('')
         }).join('')

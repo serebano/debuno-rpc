@@ -1,24 +1,26 @@
-import { execFile } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { writeFile, readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
-import config from "../config.ts";
+import { RPC_DIR } from "../../config.ts";
 import type { SSE, SSETarget, FileEvent } from "./types.ts";
 import { getChanges } from "../../utils/mod.ts";
 import chokidar, { type FSWatcher } from "npm:chokidar"
-import process from "node:process";
+import type { Config } from "../../types/config.ts";
 
-export const originsFile = process.env.HOME + '/.rpcorigins.json'
+export const originsFile = RPC_DIR + '/origins.json'
 
 let origins: {
     file: string;
     http: string;
+    base: string;
 }[] = []
+
+const toId = (o: any) => [o.file, o.http, o.base].join('|')
 
 async function emitOriginsEvent(target: SSE | SSETarget) {
     const newOrigins = (await getOrigins())
-    const newOriginsHttp = newOrigins.map(o => o.http)
-    const originsHttp = origins.map(o => o.http)
+    const newOriginsHttp = newOrigins.map(toId)
+    const originsHttp = origins.map(toId)
     const changes = getChanges(originsHttp, newOriginsHttp)
 
     target.emit('origins', newOrigins)
@@ -27,7 +29,7 @@ async function emitOriginsEvent(target: SSE | SSETarget) {
         for (const origin of changes.added) {
             target.emit('origin', {
                 kind: 'added',
-                ...newOrigins.find(o => o.http === origin)
+                ...newOrigins.find(o => toId(o) === origin)
             })
         }
     }
@@ -36,7 +38,7 @@ async function emitOriginsEvent(target: SSE | SSETarget) {
         for (const origin of changes.removed) {
             target.emit('origin', {
                 kind: 'removed',
-                ...origins.find(o => o.http === origin)
+                ...origins.find(o => toId(o) === origin)
             })
         }
     }
@@ -46,7 +48,7 @@ async function emitOriginsEvent(target: SSE | SSETarget) {
 
 
 export function watchOrigins(target: SSE | SSETarget): FSWatcher {
-    console.log(`watchOrigins(`, [originsFile], `)`)
+    console.log(`watchOrigins( ${originsFile} )`)
 
     const watcher = chokidar.watch(originsFile, {
         persistent: true,
@@ -59,10 +61,16 @@ export function watchOrigins(target: SSE | SSETarget): FSWatcher {
         .on('unlink', () => emitOriginsEvent(target));
 }
 
-export async function removeOrigin(path: string, origin: string, listener?: (o: { file: string; http: string; type: FileEvent['type']; }) => void) {
+export async function removeOrigin(config: Config, origin: string, listener?: (o: { file: string; http: string; base: string; type: FileEvent['type']; }) => void) {
+    const { path, base } = config.server
     const origins = await getOrigins();
-    const o = { file: path.startsWith('file:') ? path : pathToFileURL(path).href, http: origin };
-    const index = origins.findIndex(origin => origin.file === o.file && origin.http === o.http);
+    const o = {
+        file: String(path.startsWith('file:') ? path : pathToFileURL(path)),
+        http: origin,
+        base
+    };
+
+    const index = origins.findIndex(origin => toId(origin) === toId(o));
 
     if (index !== -1) {
         origins.splice(index, 1);
@@ -74,10 +82,15 @@ export async function removeOrigin(path: string, origin: string, listener?: (o: 
     return origins;
 }
 
-export async function addOrigin(path: string, origin: string, listener?: (o: { file: string; http: string; type: FileEvent['type']; }) => void) {
+export async function addOrigin(config: Config, origin: string, listener?: (o: { file: string; http: string; base: string; type: FileEvent['type']; }) => void) {
+    const { path, base } = config.server
     const origins = await getOrigins();
-    const o = { file: path.startsWith('file:') ? path : pathToFileURL(path).href, http: origin };
-    const exists = !!origins.find(origin => origin.file === o.file && origin.http === o.http);
+    const o = {
+        file: String(path.startsWith('file:') ? path : pathToFileURL(path)),
+        http: origin,
+        base
+    };
+    const exists = !!origins.find(origin => toId(origin) === toId(o));
 
     if (!exists) {
         const no = [...origins, o];
@@ -91,7 +104,7 @@ export async function addOrigin(path: string, origin: string, listener?: (o: { f
     return origins;
 }
 
-export async function getOrigins(): Promise<{ file: string; http: string; }[]> {
+export async function getOrigins(): Promise<{ file: string; http: string; base: string; }[]> {
     try {
         const text = await readFile(originsFile, 'utf-8');
         const json = JSON.parse(text);
@@ -102,7 +115,7 @@ export async function getOrigins(): Promise<{ file: string; http: string; }[]> {
     }
 }
 
-export function getOriginsSync(): { file: string; http: string; }[] {
+export function getOriginsSync(): { file: string; http: string; base: string; }[] {
     const text = readFileSync(originsFile, 'utf-8');
     const json = JSON.parse(text);
 

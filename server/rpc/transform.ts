@@ -3,30 +3,44 @@ import type * as oxc from 'npm:@oxc-project/types@0.51.0';
 
 type Id = oxc.BindingIdentifier | oxc.BindingPattern | oxc.PropertyKey | { index: number } | null
 
-export async function transform(fileName: string, code: string, options?: {
+export interface RPCTransformInit {
     format?: 'javascript' | 'typescript'
     fileName?: string
     sourceMap?: boolean
     rpcImportUrl?: string
     hotImportUrl?: string
+    envImportUrl?: string
+    jsxImportSource?: string
+    env?: Record<string, any>
+}
 
-}): Promise<{ errors: OxcError[]; code: string; source: { code: string, map?: any } }> {
+export async function transform(fileName: string, code: string, init?: RPCTransformInit): Promise<{
+    errors: OxcError[];
+    code: string;
+    source: { code: string, map?: any }
+}> {
 
-    const RPC_IMPORT_URL = options?.rpcImportUrl || `/@client/rpc` //`data:text/javascript;base64,${btoa('export ' + (await import('../../client/rpc.ts')).create + `\n//# sourceURL=/rpc.js`)}`
-    const HOT_IMPORT_URL = options?.hotImportUrl || `/@client/hot` //`data:text/javascript;base64,${btoa('export ' + (await import('../../client/hot.ts')).create + `\n//# sourceURL=/hot.js`)}`
+    const RPC_IMPORT_URL = init?.rpcImportUrl || `/@client/rpc`
+    const HOT_IMPORT_URL = init?.hotImportUrl || `/@client/hot`
+    const ENV_IMPORT_URL = init?.envImportUrl || `/@client/env`
 
-    const RPC_CREATE = `import.meta.rpc = (await import('${RPC_IMPORT_URL}')).create(import.meta.url);`
-    const HOT_CREATE = `import.meta.hot = (await import('${HOT_IMPORT_URL}')).create(import.meta.url);`
+    const IMPORT_META_ENV = `import.meta.env = (await import('${ENV_IMPORT_URL}')).create(import.meta);`
+    const IMPORT_META_RPC = `import.meta.rpc = (await import('${RPC_IMPORT_URL}')).create(import.meta);`
+    const IMPORT_META_HOT = `import.meta.hot = (await import('${HOT_IMPORT_URL}')).create(import.meta);`
 
-    const RPC_CALL = (...args: any[]) => `import.meta.rpc.call(${args.join(', ')})`
+    const RPC_CALL = (...args: any[]) => `import.meta.rpc(${args.join(', ')})`
 
-    console.log(`transform > ${fileName} (${options?.format})`)
+    console.log(`transform > ${fileName} (${init?.format})`)
 
     let source = { code }
-    if (options?.format === 'javascript') {
+    if (init?.format === 'javascript') {
         const oxcTransform = await import('npm:oxc-transform@0.51.0');
         const transformed = oxcTransform.transform(fileName, code, {
-            sourcemap: options.sourceMap
+            sourcemap: init.sourceMap,
+            jsx: {
+                runtime: "automatic",
+                importSource: init.jsxImportSource || "https://esm.sh/react" //"https://esm.sh/preact"
+            }
         });
         source = transformed
         code = transformed.code
@@ -44,7 +58,7 @@ export async function transform(fileName: string, code: string, options?: {
             if (p.type === 'AssignmentPattern')
                 p = p.left as oxc.ParamPattern
 
-            if (options?.format === 'javascript' && p.typeAnnotation) {
+            if (init?.format === 'javascript' && p.typeAnnotation) {
                 magicString.remove(p.typeAnnotation.start, p.typeAnnotation.end)
             }
 
@@ -88,7 +102,7 @@ export async function transform(fileName: string, code: string, options?: {
         const promiseReturnType = returnTypeText.startsWith('Promise') ? returnTypeText : `Promise<${returnTypeText}>`
 
         magicString.remove(returnType.start, returnType.end)
-        if (options?.format === 'javascript')
+        if (init?.format === 'javascript')
             return
         magicString.prependRight(returnType.start, `: ${promiseReturnType}`)
     }
@@ -242,14 +256,17 @@ export async function transform(fileName: string, code: string, options?: {
     const sourceCode = magicString.toString()
 
     if (sourceCode.includes('import.meta.rpc'))
-        magicString.prepend(RPC_CREATE + '\n')
+        magicString.prepend(IMPORT_META_RPC + '\n')
 
     if (sourceCode.includes('import.meta.hot'))
-        magicString.prepend(HOT_CREATE + '\n')
+        magicString.prepend(IMPORT_META_HOT + '\n')
 
-    if (options?.sourceMap === true) {
+    if (sourceCode.includes('import.meta.env'))
+        magicString.prepend(IMPORT_META_ENV + '\n')
+
+    if (init?.sourceMap === true) {
         const sourceMappingURL = magicString.generateMap({
-            source: options.fileName || fileName,
+            source: init.fileName || fileName,
             includeContent: true,
             hires: false,
         }).toUrl()

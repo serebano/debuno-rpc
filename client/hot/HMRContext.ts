@@ -1,14 +1,14 @@
 import type { HMRClient } from "./HMRClient.ts";
-import type { CustomListenersMap, HotCallback, HotModule } from "./types.ts";
+import type { CustomListenersMap, HotCallback, HotContext, HotModule } from "./types.ts";
 
-export class HMRContext implements RPCHotContext {
+export class HMRContext implements HotContext {
     private newListeners: CustomListenersMap
 
     constructor(
         private hmrClient: HMRClient,
         private ownerPath: string,
     ) {
-        const url = new URL(ownerPath)
+        const url = new URL(ownerPath, String(location))
         url.searchParams.delete('version')
 
         this.ownerPath = ownerPath = String(url)
