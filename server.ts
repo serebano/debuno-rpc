@@ -1,12 +1,8 @@
 // #!/usr/bin/env debuno deno --watch
-import { defineConfig } from "./config.ts";
+import { createServer } from "./server/index.ts";
 import { getCliArgs } from "./utils/mod.ts";
-import serve from "./server/server.ts";
 
-
-const config = defineConfig({
+createServer({
     dev: false,
     server: getCliArgs()
 })
-
-serve(config)

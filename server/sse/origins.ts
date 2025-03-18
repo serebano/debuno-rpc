@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { writeFile, readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
-import { RPC_DIR } from "../../config.ts";
+import { RPC_DIR } from "../config.ts";
 import type { SSE, SSETarget, FileEvent } from "./types.ts";
 import { getChanges } from "../../utils/mod.ts";
 import chokidar, { type FSWatcher } from "npm:chokidar"

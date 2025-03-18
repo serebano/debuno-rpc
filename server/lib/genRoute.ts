@@ -3,7 +3,7 @@ import { basename, resolve } from "node:path";
 import { hasSourceFileChanged, transformFile } from "./transform.ts";
 import { getContentType } from '../../utils/mod.ts'
 import { createRoute } from "../../utils/router.ts";
-import { RPC_LIB_DIR } from "../../config.ts";
+import { RPC_LIB_DIR } from "../config.ts";
 
 export interface LibHandlerInit {
     base?: string,

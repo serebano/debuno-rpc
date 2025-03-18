@@ -1,17 +1,32 @@
 {
     "name": "@debuno/rpc",
-    "version": "0.0.2",
-    "module": "mod.ts",
+    "version": "0.0.3",
     "type": "module",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/serebano/debuno-rpc.git"
     },
-    "homepage": "https://rpc.debuno.dev",
+    "homepage": "https://github.com/serebano/debuno-rpc",
     "exports": {
+        ".": {
+            "types": "./server/index.ts",
+            "import": "./dist/server/index.js"
+        },
         "./client": {
-            "types": "./client.d.ts"
+            "types": "./client/index.d.ts"
+        },
+        "./client/rpc": {
+            "types": "./client/rpc.ts",
+            "import": "./dist/client/rpc.js"
+        },
+        "./client/hot": {
+            "types": "./client/hot.ts",
+            "import": "./dist/client/hot.js"
         }
+    },
+    "dependencies": {
+        "oxc-transform": "0.60.0",
+        "oxc-parser": "0.60.0"
     },
     "publishConfig": {
         "access": "public"

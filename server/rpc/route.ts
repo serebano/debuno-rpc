@@ -5,7 +5,7 @@ import { editUsingExec, editUsingRedirect } from "./edit.ts";
 import { hasSourceFileChanged, parseLocation, transformFile } from "./utils.ts";
 import { homedir } from "node:os";
 import { createRoute } from "../../utils/router.ts";
-import { RPC_PRO_DIR } from "../../config.ts";
+import { RPC_PRO_DIR } from "../config.ts";
 import { moduleHtmlTransform, moduleVersionTransform } from "../../utils/mod.ts";
 
 export interface RpcHandlerInit {

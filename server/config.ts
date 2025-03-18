@@ -1,7 +1,7 @@
 // deno-lint-ignore-file no-process-global
 import { mkdir, rm } from "node:fs/promises";
-import { formatBase, getDenoConfig, resolvePath } from "./utils/mod.ts";
-import type { ConfigInit, Config } from "./types/config.ts";
+import { formatBase, getDenoConfig, resolvePath } from "../utils/mod.ts";
+import type { ConfigInit, Config } from "../types/config.ts";
 import { resolve } from "node:path";
 
 export const RPC_DIR = process.env.RPC_DIR || process.env.HOME + '/.rpc'
@@ -9,7 +9,7 @@ export const RPC_GEN_DIR = RPC_DIR + '/gen'
 export const RPC_LIB_DIR = RPC_GEN_DIR + '/lib'
 export const RPC_PRO_DIR = RPC_GEN_DIR + '/pro'
 
-await rm(RPC_DIR, { recursive: true, force: true })
+// await rm(RPC_DIR, { recursive: true, force: true })
 await mkdir(RPC_DIR, { recursive: true });
 
 export function defineConfig(init: ConfigInit = {}): Config {

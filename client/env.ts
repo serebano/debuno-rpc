@@ -1,3 +1,1 @@
-export function create(meta: ImportMeta) {
-    return {} as ImportMetaEnv
-}
+export declare function create(meta: ImportMeta): ImportMetaEnv

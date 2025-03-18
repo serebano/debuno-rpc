@@ -1,12 +1,13 @@
+import process from "node:process";
 import router from "./router.ts";
 import { watchFiles } from "./sse/files.ts";
 import { addOrigin, watchOrigins, removeOrigin } from "./sse/origins.ts";
 import { sse } from "./sse/sse.ts";
 import * as meta from "./meta.ts";
-import type { Config } from "../types/config.ts";
+import type { Config, ConfigInit } from "../types/config.ts";
 import type { ServerAddr } from "../types/server.ts";
+import { defineConfig } from "./config.ts";
 import { serve, type Server } from "../../debuno-serve/mod.ts";
-import process from "node:process";
 
 export const create = (init: Config): {
     fetch(request: Request): Promise<Response> | Response;
@@ -88,11 +89,12 @@ export const create = (init: Config): {
     }
 }
 
-export default async function (init: Config): Promise<Server> {
+export async function createServer(init: ConfigInit): Promise<Server> {
+    const config = defineConfig(init)
     const controller = new AbortController()
 
-    const { fetch, onAbort, onListen } = create(init)
-    const { port } = init.server
+    const { fetch, onAbort, onListen } = create(config)
+    const { port } = config.server
     const { signal } = controller
 
     const server = await serve({

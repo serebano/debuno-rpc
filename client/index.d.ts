@@ -18,7 +18,7 @@ interface ImportMetaEnv {
 
 interface ImportMeta {
     url: string
-    readonly hot?: import('../client/hot.ts').HotContext
-    readonly rpc: import('../client/rpc.ts').RPCContext
+    readonly hot?: import('./hot.ts').HotContext
+    readonly rpc: import('./rpc.ts').RPCContext
     readonly env: ImportMetaEnv
 }

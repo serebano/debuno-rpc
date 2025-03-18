@@ -1,1 +1,1 @@
-/// <reference path="./types/importMeta.d.ts" />
+/// <reference path="./client/index.d.ts" />

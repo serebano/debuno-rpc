@@ -7,6 +7,7 @@
         "./client/*": "./client/"
     },
     "tasks": {
+        "build:server": "deno run -A scripts/build.server.ts",
         "build:client": "deno run -A scripts/build.client.ts"
     },
     "lint": {
