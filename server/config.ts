@@ -41,8 +41,8 @@ export function defineConfig(init: ConfigInit = {}): Config {
             return {
                 base: client.base!,
                 path: this.dev
-                    ? resolvePath('./client', import.meta.url)
-                    : resolvePath('./dist/client', import.meta.url)
+                    ? resolvePath('../client', import.meta.url)
+                    : resolvePath('../dist/client', import.meta.url)
                 ,
                 get rpcImportUrl() {
                     return this.base + 'rpc'

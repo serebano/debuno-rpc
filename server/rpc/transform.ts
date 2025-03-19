@@ -97,10 +97,8 @@ export async function transform(fileName: string, code: string, init?: RPCTransf
     }
 
     function transformReturnType(returnType: oxc.TSTypeAnnotation) {
-
         const returnTypeText = magicString.getSourceText(returnType.start, returnType.end).slice(1).trim()
         const promiseReturnType = returnTypeText.startsWith('Promise') ? returnTypeText : `Promise<${returnTypeText}>`
-
         magicString.remove(returnType.start, returnType.end)
         if (init?.format === 'javascript')
             return
@@ -108,7 +106,6 @@ export async function transform(fileName: string, code: string, init?: RPCTransf
     }
 
     for (const node of (program as oxc.Program).body) {
-
         if (
             node.type === 'ExportNamedDeclaration' ||
             node.type === 'ExportDefaultDeclaration'
@@ -274,9 +271,92 @@ export async function transform(fileName: string, code: string, init?: RPCTransf
         magicString.append(`\n//# sourceMappingURL=${sourceMappingURL}`)
     }
 
+    const newCode = magicString.toString()
+    const newCode2 = removeUnusedImports(fileName, newCode, init?.format === 'javascript' ? 'jsx' : 'tsx')
+
     return {
         errors,
         source,
-        code: magicString.toString()
+        code: newCode2
     }
+}
+
+export function removeUnusedImports(fileName: string, source: string, lang?: "js" | "jsx" | "ts" | "tsx"): string {
+    const ast = parseSync(fileName, source, { sourceType: "module", lang });
+    // Map to track imported variables and their usage
+    const importMap = new Map<string, {
+        node: oxc.ImportDeclaration & {
+            done: boolean
+            specifiers: (oxc.ImportDeclarationSpecifier & {
+                used: boolean
+            })[]
+        };
+        used: boolean
+    }>();
+
+    // Collect import specifiers
+    for (const node of ast.program.body) {
+        if (node.type === "ImportDeclaration") {
+            if (node.specifiers.length) {
+                for (const specifier of node.specifiers) {
+                    importMap.set(specifier.local.name, { node: node as any, used: false });
+                }
+            } else {
+                // console.log(`   ^ remove[ImportDeclaration]: empty ${node.source.value}`)
+                ast.magicString.remove(node.start, node.end)
+            }
+        }
+    }
+
+    // Traverse AST to mark used identifiers
+    function traverse(node: any) {
+        if (!node || typeof node !== "object") return;
+        if (node.type === "ImportDeclaration") return;
+        if (node.type === "Identifier" && importMap.has(node.name)) {
+            importMap.get(node.name)!.used = true;
+        }
+        for (const key in node) traverse(node[key]);
+    }
+
+    // Mark used variables
+    traverse(ast.program);
+
+    for (const [_name, entry] of importMap) {
+        if (!entry.used && !entry.node.done) {
+            for (const specifier of entry.node.specifiers) {
+                specifier.used = importMap.get(specifier.local.name)!.used
+            }
+            const unusedSpecifiers = entry.node.specifiers.filter((specifier: any) => specifier.used === false)
+            if (unusedSpecifiers.length === entry.node.specifiers.length) {
+                // console.log(`   ^ remove[ImportDeclaration]: ${name} - ${entry.node.source.value}`)
+                ast.magicString.remove(entry.node.start, entry.node.end)
+            } else {
+                let lastStart = 0
+                let lastEnd = 0
+                for (const specifier of unusedSpecifiers) {
+                    const startComma = ast.magicString.getSourceText(specifier.start - 2, specifier.start)
+                    const endComma = ast.magicString.getSourceText(specifier.end, specifier.end + 2)
+                    const hasStartComma: boolean = startComma.trim() === ','
+                    const hasEndComma: boolean = endComma.trim() === ','
+                    // console.log(`   ^ remove[ImportDeclarationSpecifier]: [${startComma}]${specifier.local.name}[${endComma}] from ${entry.node.source.value}`)
+                    if (hasStartComma && lastEnd !== specifier.start) {
+                        lastStart = specifier.start - 2
+                        lastEnd = specifier.end
+                        ast.magicString.remove(specifier.start - 2, specifier.end)
+                    } else if (hasEndComma && lastStart !== specifier.end) {
+                        lastStart = specifier.start
+                        lastEnd = specifier.end + 2
+                        ast.magicString.remove(specifier.start, specifier.end + 2)
+                    } else {
+                        lastStart = specifier.start
+                        lastEnd = specifier.end
+                        ast.magicString.remove(specifier.start, specifier.end)
+                    }
+                }
+            }
+            entry.node.done = true
+        }
+    }
+
+    return ast.magicString.toString()
 }

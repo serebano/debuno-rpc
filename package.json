@@ -1,12 +1,16 @@
 {
     "name": "@debuno/rpc",
-    "version": "0.0.3",
+    "version": "0.0.5",
     "type": "module",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/serebano/debuno-rpc.git"
     },
     "homepage": "https://github.com/serebano/debuno-rpc",
+    "scripts": {
+        "build": "deno run build",
+        "prepublishOnly": "deno run build"
+    },
     "exports": {
         ".": {
             "types": "./server/index.ts",
@@ -30,5 +34,12 @@
     },
     "publishConfig": {
         "access": "public"
-    }
+    },
+    "files": [
+        "dist",
+        "client",
+        "server",
+        "types",
+        "utils"
+    ]
 }

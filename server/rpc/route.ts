@@ -109,11 +109,11 @@ export default createRoute((config) => {
                     : join(genDir, 'ts')
 
             const outFilePath = format === 'javascript'
-                ? join(outBaseDir, url.pathname).replace(/\.ts$/, '.ts.js')
+                ? join(outBaseDir, url.pathname).replace(/\.ts$/, '.ts.js').replace(/\.tsx$/, '.tsx.js')
                 : join(outBaseDir, url.pathname)
 
             const outSrcFilePath = typeKey === 'src' && format === 'javascript'
-                ? join(outBaseDir, 'src', url.pathname).replace(/\.ts$/, '.ts.js')
+                ? join(outBaseDir, 'src', url.pathname).replace(/\.ts$/, '.ts.js').replace(/\.tsx$/, '.tsx.js')
                 : undefined
 
             const doEdit = url.searchParams.has('edit') || url.searchParams.has('open')
