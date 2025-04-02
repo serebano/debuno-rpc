@@ -26,5 +26,8 @@
         "jsx": "react-jsx",
         "jsxImportSource": "http://esm.sh/preact"
     },
-    "nodeModulesDir": "auto"
+    "nodeModulesDir": "auto",
+    "imports": {
+        "@cliffy/command": "jsr:@cliffy/command@^1.0.0-rc.7"
+    }
 }

@@ -7,3 +7,19 @@ export interface Router {
     match(request: Request): Promise<Route[]>
     fetch(request: Request): Promise<Response> | Response
 }
+
+export interface ErrorResponseObject {
+    error: {
+        message: string;
+        stack: string[];
+        code?: string;
+        path?: string;
+    };
+    status: number;
+}
+
+export interface Hooks {
+    onRequest?: (request: Request) => Promise<Request> | Request
+    onResponse?: (request: Request, response: Response) => Promise<Response> | Response
+    onError?: (request: Request, error: ErrorResponseObject) => Promise<Response> | Response
+}

@@ -1,6 +1,73 @@
 import { readFileSync } from "node:fs";
-import * as meta from '../server/meta.ts'
+import * as meta from '../server/meta/mod.ts'
 import process from "node:process";
+import { createHash } from "node:crypto";
+import { execFile } from "node:child_process";
+import fs from "node:fs/promises";
+
+export const fileExists = async (path: string) => {
+    try {
+        await fs.access(path, fs.constants.F_OK);
+        return true;
+    } catch {
+        return false;
+    }
+};
+
+export function mapToSet(config: Record<string, string>): {
+    path: string;
+    port: number;
+    base: string;
+}[] {
+    return Object.keys(config)
+        .map(addr => {
+            const [port, ...base] = addr.split('/');
+
+            return {
+                path: config[addr],
+                port: Number(port) || 0,
+                base: base.join('/')
+            };
+        });
+}
+
+export function open(openUri: string): Promise<void> {
+    console.log(`open(${openUri})`)
+
+    return new Promise<void>((resolve, reject) => {
+        execFile('open', [openUri], (error, _stdout, _stderr) => {
+            if (error)
+                reject(error)
+            else
+                resolve()
+        });
+    })
+}
+
+export function groupByDeep<T>(arr: T[], keyPath: string): Record<string, T[]> {
+    return arr.reduce((acc, obj) => {
+        const keys = keyPath.split(".");
+        // @ts-ignore .
+        const groupKey = keys.reduce((val, key) => val?.[key], obj) as unknown as string;
+        if (groupKey !== undefined) {
+            (acc[groupKey] ||= []).push(obj);
+        }
+        return acc;
+    }, {} as Record<string, T[]>);
+}
+
+export function groupBy<T, K extends keyof T>(arr: T[], key: K): Record<T[K] & PropertyKey, T[]> {
+    return arr.reduce((acc, obj) => {
+        const groupKey = obj[key] as T[K] & PropertyKey;
+        (acc[groupKey] ||= []).push(obj);
+        return acc;
+    }, {} as Record<T[K] & PropertyKey, T[]>);
+}
+
+export function md5(str: string): string {
+    return createHash("md5").update(str).digest("hex");
+}
+
 
 export function getCliArgs() {
     const path = (process.argv.slice(2)[0]?.split(':')[0] || '.')

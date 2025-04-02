@@ -4,7 +4,6 @@ import {
 } from "https://deno.land/std@0.204.0/http/server_sent_event.ts";
 import type { SSE, SSETarget } from "./types.ts";
 
-
 export function createSSE(opts?: {
     keepAlive?: number | boolean,
     space?: string | number
@@ -20,7 +19,7 @@ export function createSSE(opts?: {
         const id = eventId++
         const sse = new ServerSentEvent(event, { id, data, space: opts?.space })
 
-        console.log(`emit(${event})`, data)
+        console.log(`emit(${event})`, id, data)
 
         for (const target of targets) {
             target.dispatchEvent(sse)
@@ -44,11 +43,13 @@ export function createSSE(opts?: {
             const target = e.target as SSETarget
             targets.delete(target)
             comment(`target #${target.id} closed (${targets.size})`)
+            console.log(`[sse][close]`, target.id)
         })
 
         target.comment(`welcome #${target.id}`)
         comment(`target #${target.id} joined (${targets.size + 1})`)
         targets.add(target)
+        console.log(`[sse][open]`, target.id)
 
         return target
     }

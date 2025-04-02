@@ -34,6 +34,8 @@ export interface Config {
     readonly protocol: string;
     readonly srcKey: string;
     readonly genKey: string;
+    readonly rpcDir: string;
+    readonly genDir: string;
     getEnv(url: string | URL | Location): ImportMetaEnv;
     filter: (file: string) => boolean;
 }

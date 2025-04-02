@@ -3,11 +3,11 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { readDir } from "../../utils/mod.ts";
 import chokidar, { type FSWatcher } from "npm:chokidar"
-import * as meta from '../meta.ts'
+import * as meta from '../meta/mod.ts'
 
 export async function getFiles(init: { path: string, base: string, origin: string, filter: (...args: any[]) => boolean }): Promise<File[]> {
     init.origin = new URL(init.origin).origin
-    console.log(`getFiles(`, [init.path, init.origin + init.base], `)`)
+    console.log(`[files][get]`, [init.path, init.origin + init.base])
 
     return await readDir(init.path)
         .catch(() => [] as string[])
@@ -39,14 +39,13 @@ export function watchFiles(init: {
     base: string,
     origin: string | URL,
     target: SSE | SSETarget,
-    listener: (target: SSE | SSETarget, event: FileEvent) => void,
     filter: (...args: any[]) => boolean
-}): FSWatcher {
+}, listener: (target: SSE | SSETarget, event: FileEvent) => void): FSWatcher {
 
     init.origin = new URL(init.origin).origin
 
-    const { path, base, origin, target, listener, filter } = init
-    console.log(`watchFiles(`, [path, origin + base], `)`)
+    const { path, target, filter } = init
+    console.log(`[files][watch]`, path)
 
     const emit = (type: FileEvent['type']) => (path: string) => listener(target, createFileEvent({ type, path }, { path: init.path, base: init.base, origin: String(init.origin) }))
     const watcher = chokidar.watch(path, {

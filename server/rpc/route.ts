@@ -1,4 +1,4 @@
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { exec } from "./exec.ts";
 import { read } from "./read.ts";
 import { editUsingExec, editUsingRedirect } from "./edit.ts";
@@ -28,7 +28,7 @@ export interface RpcHandlerInit {
  * @returns A function that processes incoming requests.
  */
 
-export default createRoute((config) => {
+export default createRoute((config, _context) => {
     const init: RpcHandlerInit = {
         jsxImportUrl: config.shared.jsxImportUrl,
         rpcImportUrl: config.client.rpcImportUrl,
@@ -36,7 +36,8 @@ export default createRoute((config) => {
         envImportUrl: config.client.envImportUrl,
         protocol: config.protocol,
         srcKey: config.srcKey,
-        outKey: config.genKey
+        outKey: config.genKey,
+        genDir: config.genDir
     }
 
     const { path, base } = config.server
@@ -53,8 +54,6 @@ export default createRoute((config) => {
         return code
     }
 
-    console.log(`rpcHandler(`, srcDir, `)`)
-
     return {
         match(request, url) {
             return ['GET', 'POST'].includes(request.method) && url.pathname.startsWith(base)
@@ -64,7 +63,9 @@ export default createRoute((config) => {
             const loc = parseLocation(reqUrl)
             url = new URL(loc.url);
 
-            const genDir = init.genDir ? resolve(init.genDir) : RPC_PRO_DIR + ('/' + [url.protocol, url.host, config.server.base].join('/')) // srcDir + '@gen'
+            const genDir = init.genDir
+                ? join(init.genDir, config.server.base)
+                : RPC_PRO_DIR + ('/' + [url.protocol, url.host, config.server.base].join('/')) // srcDir + '@gen'
 
             url.pathname = url.pathname.startsWith(base)
                 ? url.pathname.slice(base.length)
@@ -77,11 +78,6 @@ export default createRoute((config) => {
 
             const isSrc = url.searchParams.has(srcKey)
             const isOut = url.searchParams.has(outKey)
-
-
-            const hasDash = init.protocol && url.searchParams.has('dash')
-            if (hasDash)
-                return Response.redirect(`${init.protocol + "://"}${url.host}${url.pathname}`)
 
             const validTypeValues = ['ts', 'js', null] as const
             const defaultTypeValue = isDocument ? 'ts' : isBrowser ? 'js' : 'ts'

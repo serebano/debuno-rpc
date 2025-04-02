@@ -1,7 +1,7 @@
-import type { Config } from "../../types/config.ts";
+import { createRoute } from "../../utils/router.ts";
 import distRoute from "./distRoute.ts";
 import genRoute from "./genRoute.ts";
 
-export default (config: Config) => config.dev
-    ? genRoute(config)
-    : distRoute(config)
+export default createRoute((config, context) => config.dev
+    ? genRoute(config, context)
+    : distRoute(config, context))

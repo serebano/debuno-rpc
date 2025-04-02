@@ -1,9 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { getFileExtension, getContentType } from "../../utils/mod.ts";
 import { createRoute } from "../../utils/router.ts";
-import { b } from "../../example/x.ts";
 
-export default createRoute((config) => ({
+export default createRoute((config, _context) => ({
     match: (request) => request.method === 'GET' && new URL(request.url).pathname.startsWith(config.client.base),
     async fetch(request) {
         const url = new URL(request.url);

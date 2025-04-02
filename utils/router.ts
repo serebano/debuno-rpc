@@ -1,8 +1,9 @@
 import type { Config } from "../types/config.ts";
-import type { Route, Router } from "../types/router.ts";
+import type { Context } from "../types/context.ts";
+import type { Hooks, Route, Router } from "../types/router.ts";
 import { cyan, gray } from "./colors.ts";
 
-export function createRoute<F extends (init: Config) => Route>(factory: F): F {
+export function createRoute<F extends (config: Config, context: Context) => Route>(factory: F): F {
     return factory;
 }
 
@@ -10,7 +11,7 @@ export function route(match: Route['match'], fetch: Route['fetch']): Route {
     return { match, fetch }
 }
 
-export function router(routes: Route[]): Router {
+export function createRouter(routes: Route[], hooks?: Hooks): Router {
 
     async function match(request: Request, url: URL) {
         return await Promise.all(routes.filter(route => route.match(request, url)))
@@ -25,10 +26,29 @@ export function router(routes: Route[]): Router {
                 return response
         }
 
-        return new Response(
-            `400 - Bad Request\n[${request.method}] ${url.pathname}`,
-            { status: 400 }
-        )
+        if (request.method === 'OPTIONS') {
+            return new Response(null, {
+                status: 200,
+                headers: {
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Headers': '*',
+                    'Access-Control-Allow-Methods': '*',
+                    'Access-Control-Expose-Headers': '*',
+                    'Access-Control-Allow-Private-Network': 'true',
+                }
+            })
+        }
+
+        if (request.method === 'HEAD') {
+            return new Response(null, { status: 200 })
+        }
+
+        return new Response(JSON.stringify({
+            error: {
+                status: 400,
+                message: `Bad Request`
+            }
+        }, null, 4), { status: 200 })
     }
 
     return {
@@ -40,20 +60,42 @@ export function router(routes: Route[]): Router {
             console.log()
             console.log(cyan(`[${request.method}]`), url.pathname + url.search, gray(request.headers.get('accept')?.split(',').shift()), gray(request.headers.get('user-agent')?.split(' ').shift()))
             console.group()
-            const response = await handle(request, url)
-            console.groupEnd()
-            console.log(cyan(' ⮑'), response.status, ...[response.statusText, response.headers.get('location'), response.headers.get('Content-Type')].filter(Boolean));
 
             try {
-                response.headers.set('Server', 'debuno/rpc')
-                response.headers.set('Access-Control-Allow-Origin', '*')
-                response.headers.set('Access-Control-Allow-Headers', '*')
-                response.headers.set('Access-Control-Allow-Methods', '*')
-                response.headers.set('Access-Control-Expose-Headers', '*')
-            } catch { /** */ }
+                const response = await handle(request, url)
+
+                console.groupEnd()
+                console.log(cyan(' ⮑'), response.status, ...[response.statusText, response.headers.get('location'), response.headers.get('Content-Type')].filter(Boolean));
+
+                if (hooks?.onResponse)
+                    return await hooks.onResponse(request, response)
 
 
-            return response
+                return response
+            } catch (error: any) {
+                const errres = {
+                    error: {
+                        message: error.message as string,
+                        stack: error.stack.split('\n')
+                            .filter((line: string) => line.trim().startsWith('at '))
+                            .map((line: string) => line.trim().split('at ').pop()) as string[],
+                        code: error.code,
+                        path: error.path
+                    },
+                    status: error.code === 'ENOENT' ? 404 : 500
+                }
+
+                const response = hooks?.onError
+                    ? await hooks.onError(request, errres)
+                    : Response.json(errres, {
+                        status: errres.status
+                    })
+
+                if (hooks?.onResponse)
+                    return await hooks.onResponse(request, response)
+
+                return response
+            }
         }
     }
 }

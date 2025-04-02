@@ -1,5 +1,30 @@
 import type { ServerSentEventStreamTarget } from "https://deno.land/std@0.204.0/http/server_sent_event.ts";
 
+export interface Endpoint {
+    $oid: string;
+    file: string;
+    http: string;
+    base: string;
+    endpoint: string;
+    status: number;
+    checks: number;
+    failed: number;
+}
+
+export interface SyncEndpointsResult {
+    allEndpoints: Endpoint[];
+    newEndpoints: Endpoint[];
+    validEndpoints: Endpoint[];
+    failedEndpoints: Endpoint[];
+    allIds: string[];
+    newIds: string[];
+    validIds: string[];
+    changes: {
+        added: string[];
+        removed: string[];
+    };
+};
+
 export type SSETarget = ServerSentEventStreamTarget & {
     id: number;
     emit(event: string, data: any): boolean;

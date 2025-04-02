@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { basename, resolve } from "node:path";
+import { basename } from "node:path";
 import { hasSourceFileChanged, transformFile } from "./transform.ts";
 import { getContentType } from '../../utils/mod.ts'
 import { createRoute } from "../../utils/router.ts";
@@ -11,7 +11,7 @@ export interface LibHandlerInit {
     genDir?: string
 }
 
-export default createRoute((config) => {
+export default createRoute((config, _context) => {
     const index = 'index.ts'
     const genDir = RPC_LIB_DIR + '/' + basename(config.client.path)
 
