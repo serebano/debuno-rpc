@@ -11,6 +11,9 @@
         "build:client": "deno run -A scripts/build.client.ts",
         "build": "deno run build:server && deno run build:client"
     },
+    "imports": {
+        "@debuno/serve": "../debuno-serve/mod.ts"
+    },
     "lint": {
         "rules": {
             "exclude": [
@@ -26,8 +29,5 @@
         "jsx": "react-jsx",
         "jsxImportSource": "http://esm.sh/preact"
     },
-    "nodeModulesDir": "auto",
-    "imports": {
-        "@cliffy/command": "jsr:@cliffy/command@^1.0.0-rc.7"
-    }
+    "nodeModulesDir": "auto"
 }

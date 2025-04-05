@@ -1,18 +1,23 @@
-import { defineConfig } from './config.ts'
-import { create2, createServer } from './server.ts'
-import { start } from "./start.ts";
+import { createRouter } from "../utils/router.ts";
+import { createApp } from "./app.ts";
+import { defineConfig, parseRC } from './config.ts'
+// import { createServer } from './server.ts'
+import { start, loadRC, resolveRC } from "./start.ts";
+import { serve } from "./serve.ts";
+export type { ConfigInit, Config } from "../types/config.ts";
+export type { ServerAddr } from "../types/server.ts";
+export type { App } from '../types/app.ts';
 
-export function serve(...rpcmap: { path: string, port: number, base: string }[]) {
-    return create2(...rpcmap.map(({ path, port, base }) => ({
-        server: { path, port, base }
-    })))
-
-}
 
 export {
     defineConfig,
-    createServer
+    parseRC,
+    createRouter,
+    createApp,
+    loadRC,
+    resolveRC,
+    start,
+    serve
 }
 
-export const rpc = start
 export default start

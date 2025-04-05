@@ -7,7 +7,7 @@ import type { Config } from "../../types/config.ts";
 import { atomicWriteJSON, readJSON } from "../../utils/json.ts";
 
 export const ENDPOINTS_CONFIG_PATH = RPC_DIR + '/endpoints.json'
-const MAX_FAILED = 3
+const MAX_FAILED = 2
 
 let __endpoints__ = await readEndpoints()
 
@@ -139,13 +139,23 @@ export async function checkEndpoints(): Promise<Endpoint[]> {
         entry.checks = entry.checks || 0
         entry.status = entry.status || 0
 
-        const response = await fetch(entry.endpoint, { method: 'HEAD' })
+        try {
+            const response = await fetch(entry.endpoint, { method: 'HEAD' })
 
-        return {
-            ...entry,
-            status: response.status,
-            checks: entry.checks + 1,
-            failed: response.status !== 200 ? entry.failed + 1 : 0
+            return {
+                ...entry,
+                status: response.status,
+                checks: entry.checks + 1,
+                failed: response.status !== 200 ? entry.failed + 1 : 0
+            }
+        } catch (e: any) {
+            // console.log(`[checkEndpoints]`, e.message, e.code)
+            return {
+                ...entry,
+                status: 0,
+                checks: entry.checks + 1,
+                failed: entry.failed + 1
+            }
         }
     }))
 }

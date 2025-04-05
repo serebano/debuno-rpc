@@ -4,8 +4,11 @@ export interface Route {
 }
 
 export interface Router {
+    routes: Route[]
+    hooks?: Hooks
     match(request: Request): Promise<Route[]>
     fetch(request: Request): Promise<Response> | Response
+    request(input: Request | URL | string, init?: RequestInit): Promise<Response> | Response
 }
 
 export interface ErrorResponseObject {

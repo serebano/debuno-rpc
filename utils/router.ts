@@ -2,6 +2,7 @@ import type { Config } from "../types/config.ts";
 import type { Context } from "../types/context.ts";
 import type { Hooks, Route, Router } from "../types/router.ts";
 import { cyan, gray } from "./colors.ts";
+import { createConsole, type ConsoleLevel } from "./console.ts";
 
 export function createRoute<F extends (config: Config, context: Context) => Route>(factory: F): F {
     return factory;
@@ -11,7 +12,7 @@ export function route(match: Route['match'], fetch: Route['fetch']): Route {
     return { match, fetch }
 }
 
-export function createRouter(routes: Route[], hooks?: Hooks): Router {
+export function createRouter(routes: Route[], hooks?: Hooks, opts?: { consoleLevels?: ConsoleLevel[], consoleName?: string }): Router {
 
     async function match(request: Request, url: URL) {
         return await Promise.all(routes.filter(route => route.match(request, url)))
@@ -51,7 +52,19 @@ export function createRouter(routes: Route[], hooks?: Hooks): Router {
         }, null, 4), { status: 200 })
     }
 
-    return {
+    function request(input: Request | URL | string, init?: RequestInit): Promise<Response> | Response {
+        const request = input instanceof Request ? input : new Request(input, init)
+
+        return router.fetch(request)
+    }
+
+    const console = createConsole(`${opts?.consoleName || 'router'}`, {
+        levels: opts?.consoleLevels,
+    })
+
+    const router: Router = {
+        routes,
+        hooks,
         match(request) {
             return match(request, new URL(request.url))
         },
@@ -96,7 +109,10 @@ export function createRouter(routes: Route[], hooks?: Hooks): Router {
 
                 return response
             }
-        }
+        },
+        request
     }
+
+    return router
 }
 

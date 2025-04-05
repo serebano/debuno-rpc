@@ -19,13 +19,18 @@ export default (): Router => createRouter([
     /** [HEAD] */
     route(
         (req, _url) => req.method === 'HEAD',
-        (_req, url) => new Response(null)
+        (_req, _url) => new Response(null)
 
     ),
     /** catch-all route */
     route(
-        (req, url) => true,
-        (req, url) => new Response(`Nui ${url}`, { status: 200 })
+        (_req, _url) => true,
+        (_req, _url) => new Response(JSON.stringify({
+            error: {
+                status: 404,
+                message: `Not found`
+            }
+        }, null, 4), { status: 404 })
     ),
 
 ], {
@@ -35,7 +40,7 @@ export default (): Router => createRouter([
             url: request.url,
         }, null, 2), { status: error.status })
     },
-    onResponse(request, response) {
+    onResponse(_request, response) {
         try {
             response.headers.set('Access-Control-Allow-Origin', '*')
             response.headers.set('Access-Control-Allow-Headers', '*')

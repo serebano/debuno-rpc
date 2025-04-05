@@ -1,22 +1,27 @@
 #!/usr/bin/env -S deno -A
 import { parseArgs } from "jsr:@std/cli/parse-args";
-import { start } from "./server/start.ts";
+import { loadRC, start } from "./server/start.ts";
+import process from "node:process";
 
 const args = parseArgs(process.argv.slice(2));
 const command = args._[0];
 
+console.group(`[rpc][${command}]`)
+console.log(`cwd: ${process.cwd()}`)
 
 switch (command) {
     case "start":
-        console.group(`[rpc][start]`)
-
-        console.log(`Starting rpc server at ${process.cwd()}`);
         try {
             await start()
-            console.groupEnd()
         } catch (e: any) {
             console.log(e.message)
-            console.groupEnd()
+        }
+        break;
+    case "config":
+        try {
+            await loadRC().then(console.log)
+        } catch (e: any) {
+            console.log(e.message)
         }
         break;
     case "sum": {
@@ -30,3 +35,5 @@ switch (command) {
         console.log("  start");
         console.log("  sum NUM1 NUM2 ...");
 }
+
+console.groupEnd()

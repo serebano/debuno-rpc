@@ -1,7 +1,7 @@
 // deno-lint-ignore-file no-process-global
 import { mkdir, rm } from "node:fs/promises";
-import { formatBase, getDenoConfig, resolvePath } from "../utils/mod.ts";
-import type { ConfigInit, Config } from "../types/config.ts";
+import { formatBase, getDenoConfig, groupByDeep, mapToSet, resolvePath } from "../utils/mod.ts";
+import type { ConfigInit, Config, ConfigInitMap } from "../types/config.ts";
 import { join, resolve } from "node:path";
 
 export const RPC_DIR = process.env.RPC_DIR || process.env.HOME + '/.rpc'
@@ -12,7 +12,25 @@ export const RPC_PRO_DIR = RPC_GEN_DIR + '/pro'
 // await rm(RPC_DIR, { recursive: true, force: true })
 await mkdir(RPC_DIR, { recursive: true });
 
-export function defineConfig(init: ConfigInit = {}): Config {
+// Define your types
+type Input = Record<string, string>;
+
+// Overloads
+export function parseRC(input: Input, group: true): ConfigInitMap;
+export function parseRC(input: Input, group?: false): ConfigInit[];
+
+// Implementation
+export function parseRC(input: Input, group: boolean = false): any {
+    const inits: ConfigInit[] = mapToSet(input)
+        .map(server => ({ server }));
+
+    return group === true
+        ? groupByDeep(inits, "server.$id")
+        : inits;
+}
+
+export function defineConfig(init: ConfigInit): Config {
+    init = { ...init }
     const server = init.server = init.server || {}
 
     server.path = server.path ? resolve(server.path) : process.cwd()
@@ -34,11 +52,7 @@ export function defineConfig(init: ConfigInit = {}): Config {
             return init.dev === true
         },
         get server() {
-            return {
-                path: server.path!,
-                port: server.port!,
-                base: server.base!
-            }
+            return server
         },
         get client() {
             return {

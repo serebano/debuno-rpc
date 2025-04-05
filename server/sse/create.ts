@@ -3,15 +3,22 @@ import {
     ServerSentEventStreamTarget,
 } from "https://deno.land/std@0.204.0/http/server_sent_event.ts";
 import type { SSE, SSETarget } from "./types.ts";
+import { createConsole, type ConsoleLevel } from "../../utils/console.ts";
 
 export function createSSE(opts?: {
     keepAlive?: number | boolean,
-    space?: string | number
+    space?: string | number,
+    consoleName?: string,
+    consoleLevels?: ConsoleLevel[],
 }): SSE {
 
     opts = opts || {}
     const targets = new Set<SSETarget>()
     let eventId = 1
+
+    const console = createConsole(opts?.consoleName || '[sse]', {
+        levels: opts?.consoleLevels,
+    })
 
     const send = (data: any) => emit('message', data)
 

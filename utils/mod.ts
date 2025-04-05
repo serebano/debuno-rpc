@@ -14,19 +14,86 @@ export const fileExists = async (path: string) => {
     }
 };
 
+export function parseUrlLike(input: string | number): URL {
+    const str = String(input).trim();
+    let protocol = 'http';
+    let hostname = 'localhost';
+    let port: number | undefined;
+    let path = '';
+
+    if (/^https?:\/\//.test(str)) {
+        return new URL(str);
+    }
+
+    if (/^\d+$/.test(str)) {
+        port = Number(str);
+    } else if (/^\d+\//.test(str)) {
+        const parts = str.split('/');
+        port = Number(parts.shift());
+        path = '/' + parts.join('/');
+    } else if (/^[^\/]+:\d+/.test(str)) {
+        const [host, portPath] = str.split(':');
+        const [p, ...restPath] = portPath.split('/');
+        hostname = host;
+        port = Number(p);
+        path = restPath.length ? '/' + restPath.join('/') : '';
+    } else if (/^[^\/]+\//.test(str)) {
+        const parts = str.split('/');
+        hostname = parts.shift()!;
+        path = '/' + parts.join('/');
+    } else {
+        hostname = str;
+    }
+
+    if (hostname === 'https') {
+        protocol = 'https';
+        hostname = 'a'; // default to some hostname if only 'https' was given
+    }
+
+    if (port === undefined) {
+        port = protocol === 'https' ? 443 : 80;
+    }
+
+    return new URL(`${protocol}://${hostname}:${port}${path}`);
+}
+
 export function mapToSet(config: Record<string, string>): {
+    readonly $id: string
+    url: URL;
     path: string;
     port: number;
     base: string;
+    host: string;
+    hostname: string;
+    protocol: string
 }[] {
+
     return Object.keys(config)
         .map(addr => {
-            const [port, ...base] = addr.split('/');
+            const url = parseUrlLike(addr)
+            const base = formatBase(url.pathname)
+
+            const port = url.port
+                ? Number(url.port)
+                : url.protocol === 'https:'
+                    ? 443
+                    : 80
+            const protocol = url.protocol.slice(0, -1)
+            const hostname = url.hostname
+
+            const host = [hostname, port].join(':')
+
+            const $id = [protocol, hostname, port].join(':')
 
             return {
+                $id,
+                url: new URL(base, url),
+                port,
+                host,
+                base,
+                protocol,
+                hostname,
                 path: config[addr],
-                port: Number(port) || 0,
-                base: base.join('/')
             };
         });
 }
@@ -50,7 +117,9 @@ export function groupByDeep<T>(arr: T[], keyPath: string): Record<string, T[]> {
         // @ts-ignore .
         const groupKey = keys.reduce((val, key) => val?.[key], obj) as unknown as string;
         if (groupKey !== undefined) {
-            (acc[groupKey] ||= []).push(obj);
+            // @ts-ignore .
+            // obj[`$key`] = groupKey;
+            ; (acc[groupKey] ||= []).push(obj);
         }
         return acc;
     }, {} as Record<string, T[]>);

@@ -1,9 +1,17 @@
+export interface ConfigInitMap {
+    [key: string]: ConfigInit[]
+}
 export interface ConfigInit {
     dev?: boolean
-    server?: {
-        path?: string
-        port?: number
-        base?: string
+    server: {
+        readonly $id: string;
+        url: URL;
+        path: string;
+        port: number;
+        base: string;
+        host: string;
+        hostname: string;
+        protocol: string;
     }
     client?: {
         base?: string
@@ -16,9 +24,14 @@ export interface ConfigInit {
 export interface Config {
     readonly dev: boolean
     readonly server: {
+        readonly $id: string;
+        url: URL;
         path: string;
         port: number;
         base: string;
+        host: string;
+        hostname: string;
+        protocol: string;
     };
     readonly client: {
         base: string;

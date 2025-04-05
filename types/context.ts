@@ -5,5 +5,5 @@ import type { ServerAddr } from "./server.ts";
 export interface Context {
     sse: SSE,
     env: Env,
-    addr: ServerAddr
+    addr?: ServerAddr
 }
