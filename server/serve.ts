@@ -3,8 +3,7 @@ import { createConsole, type ConsoleLevel } from "../utils/console.ts";
 import { groupByDeep } from "../utils/mod.ts";
 import { createRouter } from "../utils/router.ts";
 import { createApp } from "./app.ts";
-import { parseRC, type ConfigInit, type ServerAddr } from "./index.ts";
-import { loadRC } from "./start.ts";
+import { loadRC, parseRC, type ConfigInit, type ServerAddr } from "./index.ts";
 import * as debunoServe from "/Users/serebano/dev/debuno-serve/mod.ts";
 
 export type RPCServerState = 'idle' | 'starting' | 'listening' | 'closed' | 'errored'
@@ -32,15 +31,19 @@ export interface RPCServeOptions {
 }
 
 export async function serve(): Promise<RPCServer[]>
-export async function serve(init?: null | undefined, options?: RPCServeOptions): Promise<RPCServer[]>
+export async function serve(rcFilePath?: string, options?: RPCServeOptions): Promise<RPCServer[]>
 
 export async function serve(map: Record<string | number, string>, options?: RPCServeOptions): Promise<RPCServer[]>
 
 export async function serve(init: ConfigInit[], options?: RPCServeOptions): Promise<RPCServer[]>
 
-export async function serve(input?: ConfigInit[] | Record<string | number, string> | undefined | null, options?: RPCServeOptions): Promise<RPCServer[]> {
-    if (!input)
-        input = await loadRC()
+export async function serve(
+    input?: ConfigInit[] | Record<string | number, string> | undefined | string,
+    options?: RPCServeOptions
+): Promise<RPCServer[]> {
+
+    if (!input || typeof input === 'string')
+        input = await loadRC(input)
 
     if (!Array.isArray(input)) {
         input = parseRC(input)

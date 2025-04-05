@@ -1,47 +1,34 @@
-import path from "node:path";
-import process from "node:process";
+
+import { cyan, red, gray, green, magenta } from "../utils/colors.ts";
 import { serve } from "./serve.ts";
-import { fileExists, mapToSet } from "../utils/mod.ts";
-
-export async function resolveRC(file?: string): Promise<string> {
-    if (!file) {
-        const cwd = process.cwd()
-
-        const denoConfigFile = path.join(cwd, 'deno.json');
-        const rpcConfigFile = path.join(cwd, 'rpc.json');
-
-        if (await fileExists(rpcConfigFile))
-            return resolveRC(rpcConfigFile);
-
-        if (await fileExists(denoConfigFile))
-            return resolveRC(denoConfigFile);
-
-        throw new TypeError(`Missing config file at path: ${cwd}, deno.json or rpc.json required`);
-    }
-
-    return file
-}
-
-export async function loadRC(filePath?: string) {
-
-    const resolvedFilePath = await resolveRC(filePath);
-    const { default: config } = await import(resolvedFilePath, { with: { type: 'json' } });
-
-    const map = config.rpc as Record<string, string>;
-
-    if (!map)
-        throw new TypeError(`Missing config.rpc mappings at: ${resolvedFilePath}`);
-
-    return mapToSet(map).map(server => ({ server }))
-}
 
 
-export async function start(rcFilePath?: string) {
-    const config = (await loadRC(rcFilePath))
-    const server = await serve(config);
-
-    return {
-        config,
-        server
-    }
+export function start(rcFilePath?: string) {
+    return serve(rcFilePath, {
+        onInit(server) {
+            console.time(server.$id)
+            console.groupEnd()
+            console.log()
+            console.group(`${cyan(server.$id)}`)
+        },
+        onListening(server) {
+            console.group()
+            server.apps.forEach(app => {
+                console.log('app(', app.config.server.base, green(app.config.server.url + '?dash=dev'), ')')
+            })
+            console.groupEnd()
+        },
+        onErrored(server) {
+            console.group()
+            console.log(red(String(server.error)))
+            console.groupEnd()
+        },
+        onClosed(server) {
+            console.groupEnd()
+            console.log()
+        },
+        onStateChange(server) {
+            console.log(`${gray(server.$id)} (${magenta(server.state)})`)
+        }
+    });
 }

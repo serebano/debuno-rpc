@@ -1,8 +1,8 @@
 // deno-lint-ignore-file no-process-global
 import { mkdir, rm } from "node:fs/promises";
-import { formatBase, getDenoConfig, groupByDeep, mapToSet, resolvePath } from "../utils/mod.ts";
+import { fileExists, formatBase, getDenoConfig, groupByDeep, mapToSet, resolvePath } from "../utils/mod.ts";
 import type { ConfigInit, Config, ConfigInitMap } from "../types/config.ts";
-import { join, resolve } from "node:path";
+import path, { join, resolve } from "node:path";
 
 export const RPC_DIR = process.env.RPC_DIR || process.env.HOME + '/.rpc'
 export const RPC_GEN_DIR = RPC_DIR + '/gen'
@@ -27,6 +27,38 @@ export function parseRC(input: Input, group: boolean = false): any {
     return group === true
         ? groupByDeep(inits, "server.$id")
         : inits;
+}
+
+export async function resolveRC(file?: string): Promise<string> {
+    if (!file) {
+        const cwd = process.cwd()
+
+        const denoConfigFile = path.join(cwd, 'deno.json');
+        const rpcConfigFile = path.join(cwd, 'rpc.json');
+
+        if (await fileExists(rpcConfigFile))
+            return resolveRC(rpcConfigFile);
+
+        if (await fileExists(denoConfigFile))
+            return resolveRC(denoConfigFile);
+
+        throw new TypeError(`Missing config file at path: ${cwd}, deno.json or rpc.json required`);
+    }
+
+    return file
+}
+
+export async function loadRC(filePath?: string) {
+
+    const resolvedFilePath = await resolveRC(filePath);
+    const { default: config } = await import(resolvedFilePath, { with: { type: 'json' } });
+
+    const map = config.rpc as Record<string, string>;
+
+    if (!map)
+        throw new TypeError(`Missing config.rpc mappings at: ${resolvedFilePath}`);
+
+    return mapToSet(map).map(server => ({ server }))
 }
 
 export function defineConfig(init: ConfigInit): Config {
