@@ -5,6 +5,8 @@ export interface ConfigInit {
     dev?: boolean
     server: {
         readonly $id: string;
+        readonly $addr: string;
+        endpoint: string;
         url: URL;
         path: string;
         port: number;
@@ -23,16 +25,8 @@ export interface ConfigInit {
 
 export interface Config {
     readonly dev: boolean
-    readonly server: {
-        readonly $id: string;
-        url: URL;
-        path: string;
-        port: number;
-        base: string;
-        host: string;
-        hostname: string;
-        protocol: string;
-    };
+    readonly runtime: string
+    readonly server: ConfigInit['server'];
     readonly client: {
         base: string;
         path: string;

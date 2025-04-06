@@ -4,25 +4,157 @@ import { start } from "./server/start.ts";
 import process from "node:process";
 import { loadRC } from "./server/config.ts";
 import path from "node:path";
+import pkg from "./package.json" with    { type: "json" };
+import { cyan, red, gray, green, magenta, yellow, blue } from "./utils/colors.ts";
+import { createConsole } from "./utils/console.ts";
+import { fileExists } from "./utils/mod.ts";
+import { mkdir, rm } from "node:fs/promises";
+import { copyFolder } from "./utils/fs.ts";
 
-const args = parseArgs(process.argv.slice(2));
+const BIN = Object.keys(pkg.bin)[0];
+const VERSION = pkg.version
+
+const args = parseArgs(process.argv.slice(2), {
+
+});
 const command = args._.shift() as string;
-const rcFileArg = args._.length > 0
-    ? args._[args._.length - 1] as string
+const rcFileArgs = args._.length > 0
+    ? args._.filter(a => typeof a === 'string') // args._[args._.length - 1] as string
     : undefined
-const isRCFile = rcFileArg && (rcFileArg?.endsWith('.json') || rcFileArg?.endsWith('.js') || rcFileArg?.endsWith('.ts'));
-const rcFilePath = isRCFile
-    ? path.resolve(process.cwd(), rcFileArg)
+// const isRCFile = rcFileArg && (rcFileArg?.endsWith('.json') || rcFileArg?.endsWith('.js') || rcFileArg?.endsWith('.ts'));
+const rcFileNames = rcFileArgs
+    ? rcFileArgs.filter((arg: string) => arg.endsWith('.json') || arg.endsWith('.js') || arg.endsWith('.ts'))
     : undefined
 
-console.group(`[rpc][${command}]`, { isRCFile, rcFilePath: rcFileArg })
-console.log(`cwd: ${process.cwd()}`)
-console.log(`cfg: ${rcFileArg}`)
-console.log(`rcFilePath: ${rcFilePath}`)
+
+const options = {
+    "--debug": {
+        type: "boolean",
+        description: "Enable debug mode",
+        default: false,
+    },
+}
+const commands = {
+    start: {
+        description: "Start the RPC server",
+        options: {
+            "--rc": {
+                type: "string",
+                description: "Path to the RPC config file",
+            },
+        },
+    },
+    config: {
+        description: "Show the RPC config",
+        options: {
+            "--rc": {
+                type: "string",
+                description: "Path to the RPC config file",
+            },
+        },
+    },
+    create: {
+        description: "Create a new RPC App",
+        options: {
+            "--rc": {
+                type: "string",
+                description: "Path to the RPC config file",
+            },
+        },
+    },
+    help: {
+        description: "Show help",
+        options: {
+            "--rc": {
+                type: "string",
+                description: "Path to the RPC config file",
+            },
+        },
+    },
+    clean: {
+        description: "Clean the RPC cache",
+        options: {},
+    },
+}
 
 
+const console = createConsole('cli', {
+    level: args.debug === true ? "debug" : args.debug || (process.env.RPC_DEBUG ? 'debug' : 'info'),
+})
+
+console.debug(args)
+
+const CREATE_TEMPLATES = {
+    "basic": {
+        name: "basic",
+        description: "Basic RPC App",
+        src: "/Users/serebano/dev/debuno-rpc-templates/basic"
+    },
+}
+
+async function create(rpcDir: string, opts?: { force: boolean }) {
+    console.debug(`create ${rpcDir}`)
+    if (!rpcDir)
+        throw new Error("Path is required")
+
+    const force = opts?.force || false
+    const resolvedRpcDir = path.resolve(rpcDir)
+
+    const pathExists = await fileExists(resolvedRpcDir)
+    if (pathExists) {
+        if (force) {
+            console.debug(`Path already exists: ${resolvedRpcDir}, force create`)
+        } else {
+            throw new Error(`Path already exists: ${resolvedRpcDir}`)
+        }
+    }
+
+    await copyFolder(CREATE_TEMPLATES.basic.src, resolvedRpcDir)
+    await rm(path.join(resolvedRpcDir, '.rpc'), { recursive: true, force: true })
+
+    console.debug(`${CREATE_TEMPLATES.basic.description} created: ${resolvedRpcDir}`)
+
+    return resolvedRpcDir
+
+}
 
 switch (command) {
+    case "clean":
+        try {
+            console.debug(`Cleaning...`)
+            const destDir = args._[0]
+                ? path.resolve(args._[0] as string, '.rpc')
+                : path.resolve(process.cwd(), '.rpc')
+            const exists = await fileExists(destDir)
+            if (!exists) {
+                console.debug(`Nothing to clean: ${destDir}`)
+                break;
+            }
+            console.debug(`Cleaning: ${destDir}`)
+            await rm(destDir, { recursive: true, force: true })
+            console.debug(`Cleaned: ${destDir}`)
+        } catch (e: any) {
+            console.error(e.message)
+        }
+        break;
+    case "create":
+        try {
+            const destDir = args._[0] as string
+            const opts = {
+                force: args.force || args.f || false
+            }
+            const rpcDir = await create(destDir, opts)
+            const relativeDir = path.relative(process.cwd(), rpcDir)
+            console.group()
+            console.log(`Created: ${rpcDir}`)
+            console.log(`Run: ${BIN} start ${relativeDir}`)
+            console.log(`   or`)
+            console.log(`Run: cd ${relativeDir} && ${BIN} start`)
+            console.groupEnd()
+        } catch (e: any) {
+            console.error(e.message)
+        }
+        break;
     case "start":
         try {
             await start()
@@ -31,27 +163,52 @@ switch (command) {
         }
         break;
     case "config":
+        console.debug(`rpc config ${rcFileNames || ''}`)
         try {
-            await loadRC(rcFilePath)
+            await loadRC(rcFileNames, console.level)
                 .then(rc => rc.reduce((acc, { server }) => {
-                    acc[`${server.url}`] = server.path
+                    // acc[`${server.$addr}`] = server.endpoint
+                    acc[`${server.endpoint}`] = path.resolve(server.path)
                     return acc
-                }, {} as Record<string, string>))
+                }, {} as Record<string, any>))
                 .then(console.log)
         } catch (e: any) {
-            console.log(e.message)
+            console.error(e.message)
         }
         break;
-    case "sum": {
-        const numbers = args._.slice(1).map(Number);
-        console.log(`Sum: ${numbers.reduce((a, b) => a + b, 0)}`);
-        break;
-    }
     default:
-        console.log("Usage: cli.ts [command] [options]");
-        console.log("Commands:");
-        console.log("  start");
-        console.log("  sum NUM1 NUM2 ...");
+        console.group(`${blue(pkg.displayName)} ${gray(VERSION)}`)
+        console.log()
+        console.log(gray('Usage:'), BIN, gray(`[command] [options] [RC_FILE_ARG]...`));
+        console.log()
+        // commands
+        console.group(yellow("Commands:"));
+        Object.entries(commands).forEach(([name, { description }]) => {
+            console.log(`  ${green(name)} - ${gray(description)}`);
+        });
+        console.groupEnd()
+        console.log()
+        // options
+        console.group(yellow("Options:"));
+        Object.entries(options).forEach(([name, { description }]) => {
+            console.log(`  ${green(name)} - ${gray(description)}`);
+        });
+        console.groupEnd()
+        console.log()
+        // arguments
+        console.group(yellow(`Arguments:`))
+        console.log(`   [RC_FILE_ARG] Config file`)
+        console.groupEnd()
+        console.log()
+        // examples
+        console.group(yellow(`Examples:`));
+        console.log(`  ${BIN} start ./rpc.json`);
+        console.log(`  ${BIN} config ./rpc.json`);
+        console.groupEnd()
+
+        console.groupEnd()
+        console.log()
+        break;
 }
 
 console.groupEnd()

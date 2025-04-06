@@ -14,6 +14,9 @@ interface ImportMetaEnv {
     BASE: string
     ORIGIN: string
     BASE_URL: string
+    ENDPOINT: string
+    RUNTIME: string
+    RPC_DIR: string
 }
 
 interface ImportMeta {

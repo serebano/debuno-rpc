@@ -15,51 +15,73 @@ export const fileExists = async (path: string) => {
 };
 
 export function parseUrlLike(input: string | number): URL {
-    const str = String(input).trim();
-    let protocol = 'http';
-    let hostname = 'localhost';
-    let port: number | undefined;
-    let path = '';
+    let str = String(input).trim();
 
-    if (/^https?:\/\//.test(str)) {
-        return new URL(str);
+    // Handle cases like: https://8080 or http://8080/path
+    const protoPortMatch = str.match(/^https?:\/\/(\d+)(\/.*)?$/);
+    if (protoPortMatch) {
+        const proto = str.startsWith("https") ? "https" : "http";
+        const port = protoPortMatch[1];
+        const path = ensureTrailingSlash(protoPortMatch[2] || "/");
+        return new URL(`${proto}://localhost:${port}${path}`);
     }
+
+    // Full valid URL? Parse and normalize
+    try {
+        const url = new URL(str);
+        if (!url.port) {
+            url.port = url.protocol === "https:" ? "443" : "80";
+        }
+        url.pathname = ensureTrailingSlash(url.pathname);
+        return url;
+    } catch { }
+
+    // Manual fallback parsing
+    let protocol = "http";
+    let hostname = "localhost";
+    let port: number | undefined;
+    let path = "/";
 
     if (/^\d+$/.test(str)) {
         port = Number(str);
     } else if (/^\d+\//.test(str)) {
-        const parts = str.split('/');
-        port = Number(parts.shift());
-        path = '/' + parts.join('/');
-    } else if (/^[^\/]+:\d+/.test(str)) {
-        const [host, portPath] = str.split(':');
-        const [p, ...restPath] = portPath.split('/');
+        const [p, ...rest] = str.split("/");
+        port = Number(p);
+        path = "/" + rest.join("/");
+    } else if (/^[^/]+:\d+/.test(str)) {
+        const [host, rest] = str.split(":");
+        const [p, ...restPath] = rest.split("/");
         hostname = host;
         port = Number(p);
-        path = restPath.length ? '/' + restPath.join('/') : '';
-    } else if (/^[^\/]+\//.test(str)) {
-        const parts = str.split('/');
-        hostname = parts.shift()!;
-        path = '/' + parts.join('/');
+        path = restPath.length ? "/" + restPath.join("/") : "/";
+    } else if (/^[^/]+\/.*$/.test(str)) {
+        const [host, ...restPath] = str.split("/");
+        hostname = host;
+        path = "/" + restPath.join("/");
     } else {
         hostname = str;
     }
 
-    if (hostname === 'https') {
-        protocol = 'https';
-        hostname = 'a'; // default to some hostname if only 'https' was given
-    }
-
+    path = ensureTrailingSlash(path);
     if (port === undefined) {
-        port = protocol === 'https' ? 443 : 80;
+        port = protocol === "https" ? 443 : 80;
     }
 
     return new URL(`${protocol}://${hostname}:${port}${path}`);
 }
 
+function ensureTrailingSlash(path: string): string {
+    return path.endsWith("/") || path.includes("?") || path.includes("#")
+        ? path
+        : path + "/";
+}
+
+
 export function mapToSet(config: Record<string, string>): {
     readonly $id: string
+    readonly $addr: string
     url: URL;
+    endpoint: string;
     path: string;
     port: number;
     base: string;
@@ -69,8 +91,10 @@ export function mapToSet(config: Record<string, string>): {
 }[] {
 
     return Object.keys(config)
-        .map(addr => {
-            const url = parseUrlLike(addr)
+        .map($addr => {
+            let url = parseUrlLike($addr)
+
+            const path = config[$addr]
             const base = formatBase(url.pathname)
 
             const port = url.port
@@ -84,16 +108,20 @@ export function mapToSet(config: Record<string, string>): {
             const host = [hostname, port].join(':')
 
             const $id = [protocol, hostname, port].join(':')
+            const endpoint = `${protocol}://${hostname}:${port}${base}`
+            url = new URL(endpoint)
 
             return {
                 $id,
-                url: new URL(base, url),
+                $addr,
+                endpoint,
+                url,
                 port,
                 host,
                 base,
                 protocol,
                 hostname,
-                path: config[addr],
+                path,
             };
         });
 }

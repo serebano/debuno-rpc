@@ -22,6 +22,9 @@
         "build": "deno run build",
         "prepublishOnly": "deno run build"
     },
+    "bin": {
+        "rpc": "./cli.ts"
+    },
     "exports": {
         ".": {
             "types": "./server/index.ts",

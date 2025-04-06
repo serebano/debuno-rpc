@@ -1,7 +1,5 @@
-
-import { cyan, red, gray, green, magenta } from "../utils/colors.ts";
+import { cyan, red, gray, green, magenta, yellow } from "../utils/colors.ts";
 import { serve } from "./serve.ts";
-
 
 export function start(rcFilePath?: string) {
     return serve(rcFilePath, {
@@ -14,7 +12,7 @@ export function start(rcFilePath?: string) {
         onListening(server) {
             console.group()
             server.apps.forEach(app => {
-                console.log('app(', app.config.server.base, green(app.config.server.url + '?dash=dev'), ')')
+                console.log('app(', app.config.server.base, green(app.config.server.url + '?dash'), yellow(app.config.server.url + '?dash=dev'), ')')
             })
             console.groupEnd()
         },
@@ -23,7 +21,7 @@ export function start(rcFilePath?: string) {
             console.log(red(String(server.error)))
             console.groupEnd()
         },
-        onClosed(server) {
+        onClosed() {
             console.groupEnd()
             console.log()
         },
