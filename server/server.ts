@@ -18,7 +18,7 @@ export async function create2(...inits: ConfigInit[]) {
 
 
 export async function create(port: number, init: ConfigInit[]) {
-    const apps = init.map(createApp)
+    const apps = init.map(i => createApp(i))
 
     const appsRoute = apps.map(app => {
         return {
@@ -43,13 +43,13 @@ export async function create(port: number, init: ConfigInit[]) {
     const onListen = async (addr: ServerAddr) => {
         result.addr = addr
         for (const app of apps) {
-            await app.onStart(addr)
+            await app.start()
         }
     }
 
     const onAbort = async (reason?: any) => {
         for (const app of apps) {
-            await app.onStop(reason)
+            await app.stop()
         }
     }
 

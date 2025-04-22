@@ -1,15 +1,21 @@
 import type { App } from "../types/app.ts";
-import { createConsole, type ConsoleLevel } from "../utils/console.ts";
-import { groupByDeep } from "../utils/mod.ts";
-import { createRouter } from "../utils/router.ts";
-import { createApp } from "./app.ts";
+import { getChanges, groupByDeep } from "../utils/mod.ts";
+import { createApp, type AppOptions } from "./app.ts";
+import { watchRC } from "./config/watch.ts";
 import { loadRC, parseRC, type ConfigInit, type ServerAddr } from "./index.ts";
 import * as debunoServe from "/Users/serebano/dev/debuno-serve/mod.ts";
+import { extendConsole } from "../utils/console.ts";
+import defaultRouter from "./defaultRouter.ts";
+import type { FSWatcher } from "npm:chokidar";
+import { blue } from "../utils/colors.ts";
 
-export type RPCServerState = 'idle' | 'starting' | 'listening' | 'closed' | 'errored'
+const console = extendConsole('serve')
+
+const defaultRoute = defaultRouter().fetch
+
+export type RPCServerState = 'created' | 'starting' | 'listening' | 'closed' | 'errored'
 export interface RPCServer {
     $id: string;
-    state: RPCServerState;
     config: ConfigInit['server']
     /** debuno-serve server instance */
     server?: debunoServe.Server;
@@ -17,149 +23,404 @@ export interface RPCServer {
 
     addr?: ServerAddr;
     apps: App[];
+
+    state: RPCServerState;
+    closed: Promise<void>
+    listening: Promise<void>
+    finished: Promise<void>
+    start: () => Promise<RPCServer>;
+    stop: () => Promise<RPCServer>;
+    restart: () => Promise<RPCServer>;
 }
 
 export interface RPCServeOptions {
-    consoleLevels?: ConsoleLevel[]
     throwIfError?: boolean;
-    onInit?: (server: RPCServer) => void;
-    onStateChange?: (server: RPCServer) => void;
-    onStarting?: (server: RPCServer) => void;
-    onListening?: (server: RPCServer) => void;
-    onClosed?: (server: RPCServer) => void;
-    onErrored?: (server: RPCServer) => void;
+    onServerStateChanged?: (server: RPCServer) => void;
+    onAppStateChanged?: (app: App) => void;
 }
 
-export async function serve(): Promise<RPCServer[]>
-export async function serve(rcFilePath?: string, options?: RPCServeOptions): Promise<RPCServer[]>
+export interface RPCServeInstance {
+    configs: ConfigInit[]
+    options: RPCServeOptions
+    servers: Map<string, RPCServer>
+    watcher: FSWatcher | null
+    shutdown: () => Promise<void>
+    reload(): Promise<void>
+}
 
-export async function serve(map: Record<string | number, string>, options?: RPCServeOptions): Promise<RPCServer[]>
-
-export async function serve(init: ConfigInit[], options?: RPCServeOptions): Promise<RPCServer[]>
+export async function serve(): Promise<RPCServeInstance>
+export async function serve(rcFilePath?: string, options?: RPCServeOptions): Promise<RPCServeInstance>
+export async function serve(map: Record<string | number, string>, options?: RPCServeOptions): Promise<RPCServeInstance>
+export async function serve(init: ConfigInit[], options?: RPCServeOptions): Promise<RPCServeInstance>
 
 export async function serve(
-    input?: ConfigInit[] | Record<string | number, string> | undefined | string,
+    configs?: ConfigInit[] | Record<string | number, string> | undefined | string,
     options?: RPCServeOptions
-): Promise<RPCServer[]> {
+) {
 
-    if (!input || typeof input === 'string')
-        input = await loadRC(input)
+    if (!configs || typeof configs === 'string')
+        configs = await loadRC(configs)
 
-    if (!Array.isArray(input)) {
-        input = parseRC(input)
+    if (!Array.isArray(configs)) {
+        configs = parseRC(configs)
     }
 
-    if (!input.length) {
-        throw new Error('No configs provided')
+    if (!configs.length) {
+        throw new Error('No configs found')
     }
+
+    const instance = {
+        get configs() {
+            return configs
+        },
+        get options() {
+            return options
+        },
+        servers: new Map<string, RPCServer>(),
+        watcher: null,
+        shutdown,
+        reload
+    } as RPCServeInstance
+
+    const appOptions: AppOptions = {
+        getApps(app) {
+            return getApps().filter(a => a.$id !== app.$id)
+        },
+        onStateChanged(app) {
+            instance.options.onAppStateChanged?.(app)
+        }
+    }
+
+    function getApps(): App[] {
+        let apps = [] as App[]
+        for (const config of instance.configs) {
+            const _apps = instance.servers.get(config.server.$id)?.apps //.find(app => app.config.$uid === config.$uid)
+            if (_apps)
+                apps = [...new Set([...apps, ..._apps])]
+        }
+        return apps
+    }
+
+    async function stopWatcher() {
+        await instance.watcher?.close()
+        console.debug(`stopWatcher(${instance.watcher?.closed})`)
+    }
+
+    async function startWatcher() {
+        const configFile = instance.configs[0].$file
+
+        if (!configFile)
+            return null
+
+        await instance.watcher?.close()
+
+        console.debug(`startWatcher(${configFile})`)
+
+        console.log(`Watching config`, blue(configFile))
+
+        const pid = (c: ConfigInit) => c.$uid
+        const aid = (c: ConfigInit) => c.$id
+        const sid = (c: ConfigInit) => c.server.$id
+
+        instance.watcher = watchRC(configFile, async (e) => {
+            const newConfigs = await loadRC(configFile)
+
+            const serversChanged = getChanges(instance.configs.map(sid), newConfigs.map(sid))
+            const appsChanged = getChanges(instance.configs.map(aid), newConfigs.map(aid))
+            const pathsChanged = getChanges(instance.configs.map(pid), newConfigs.map(pid))
+
+            console.clear()
+            console.log(`Config changed`, blue(configFile))
+
+            if (appsChanged.removed.length || appsChanged.added.length) {
+                console.debug(`[watcher][appsChanged]`, {
+                    removed: appsChanged.removed.length,
+                    added: appsChanged.added.length
+                })
+            }
+
+            if (pathsChanged.removed.length || pathsChanged.added.length) {
+                pathsChanged.added = pathsChanged.added.filter($uid => !appsChanged.added.includes($uid.split(',').shift()!))
+                pathsChanged.removed = pathsChanged.removed.filter($uid => !appsChanged.removed.includes($uid.split(',').shift()!))
+
+                console.debug(`[watcher][pathsChanged]`, {
+                    removed: pathsChanged.removed.length,
+                    added: pathsChanged.added.length
+                })
+            }
+
+            if (serversChanged.removed.length || serversChanged.added.length) {
+                console.debug(`[watcher][serversChanged]`, {
+                    removed: serversChanged.removed.length,
+                    added: serversChanged.added.length
+                })
+            }
+
+            if (pathsChanged.added.length) {
+                const apps = getApps()
+                for (const $uid of pathsChanged.added) {
+                    const config = newConfigs.find(config => config.$uid === $uid)
+                    if (config) {
+                        const app = apps.find(app => app.$id === config?.$id)
+
+                        console.debug(`(((pathsChanged)))`, { $uid, x: app?.config.$uid })
+
+                        if (app) {
+                            await app.update(config)
+                        }
+                    }
+                }
+            }
+
+            if (appsChanged.added.length) {
+                for (const $id of appsChanged.added) {
+                    const config = newConfigs.find(config => config.$id === $id)
+                    if (config) {
+                        const app = createApp(config, appOptions)
+                        const server = instance.servers.get(config.server.$id)
+                        if (server) {
+                            server.apps = [...server.apps, app]
+                            await app.start()
+                        } else {
+                            const server = createServer(config.server, [app], instance.options)
+                            instance.servers.set(server.$id, server)
+                            await server.start()
+                        }
+                    }
+                }
+            }
+
+            if (appsChanged.removed.length) {
+                for (const $id of appsChanged.removed) {
+                    const config = instance.configs.find(config => config.$id === $id)
+                    if (config) {
+                        const server = instance.servers.get(config.server.$id)
+                        if (server) {
+                            const app = server.apps.find(app => app.$id === $id)
+                            if (app) {
+                                await app.stop()
+                                server.apps = server.apps.filter(a => a.$id !== $id)
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (serversChanged.removed.length || serversChanged.added.length) {
+
+                if (serversChanged.removed.length) {
+                    for (const serverId of serversChanged.removed) {
+                        const removedServer = instance.servers.get(serverId)
+                        if (removedServer) {
+                            await removedServer.stop()
+                            instance.servers.delete(serverId)
+                        }
+                    }
+                }
+
+                if (serversChanged.added.length) {
+                    const grouped = groupByDeep(newConfigs, 'server.$id')
+                    for (const $id of serversChanged.added) {
+                        if (!instance.servers.has($id)) {
+                            const configs = grouped[$id]
+                            const config = configs.at(0)!.server
+                            const apps = configs.map(config => createApp(config, appOptions))
+                            const server = createServer(config, apps, instance.options)
+                            instance.servers.set($id, server)
+                            await server.start()
+                        }
+                    }
+                }
+            }
+
+            configs = newConfigs
+
+            // await reload()
+        })
+    }
+
+    function createServers() {
+        instance.servers.clear()
+        console.debug(`createServers()`)
+        const grouped = groupByDeep(instance.configs, 'server.$id')
+        for (const $id in grouped) {
+            const config = grouped[$id].at(0)!.server
+            const apps = grouped[$id].map(config => createApp(config, appOptions))
+            const server = createServer(config, apps, instance.options)
+            instance.servers.set($id, server)
+        }
+    }
+
+    async function startServers() {
+        console.debug(`startServers()`)
+        for (const [_, server] of instance.servers) {
+            try {
+                await server.start()
+            } catch (e: any) {
+                console.warn('[startServers]', server.$id, server.state, e.message)
+            }
+        }
+    }
+
+    async function stopServers() {
+        console.debug(`stopServers()`)
+        for (const [_, server] of instance.servers) {
+            try {
+                await server.stop()
+            } catch (e: any) {
+                console.warn('[stopServers]', server.$id, server.state, e.message)
+            }
+        }
+    }
+
+    async function stopApps() {
+        for (const app of getApps()) {
+            await app.stop()
+        }
+    }
+
+    async function reload() {
+        await stopServers()
+        createServers()
+        await startServers()
+    }
+
+    async function shutdown() {
+        await stopWatcher()
+        await stopApps()
+        await stopServers()
+    }
+
+    createServers()
+    await startServers()
+    await startWatcher()
+
+    return instance
+}
+
+function createServer(
+    config: ConfigInit['server'],
+    apps: App[],
+    options?: RPCServeOptions
+): RPCServer {
+    const $id = config.$id
+
+    let serverState: RPCServerState
+    let serverListening: PromiseWithResolvers<void>
+    let serverFinished: PromiseWithResolvers<void>
 
     options = options || {}
 
-    const grouped = groupByDeep(input, 'server.$id')
-    const servers: RPCServer[] = []
-    for (const $id in grouped) {
-        const config = grouped[$id].at(0)?.server!
-        let serverState: RPCServerState = 'idle'
+    const server = {
+        $id,
+        apps,
+        config,
+        get listening() {
+            return serverListening.promise
+        },
+        get finished() {
+            return serverFinished.promise
+        },
+        async start() {
+            if (['listening', 'starting'].includes(server.state) === false)
+                await startServer()
 
-        const server = {
-            $id,
-            apps: [],
-            config,
-            get state() {
-                return serverState
-            },
-            set state(state: RPCServerState) {
-                serverState = state
+            await serverListening.promise
 
-                console.log(state)
+            return server
+        },
+        async stop(reason?: any) {
+            if (server.state !== 'listening')
+                throw new Error('Server is not listening. state: ' + server.state)
 
-
-                if (options?.onStateChange) {
-                    options.onStateChange(server)
-                }
-
-                if (state === 'starting' && options?.onStarting) {
-                    options.onStarting(server)
-                }
-                if (state === 'listening' && options?.onListening) {
-                    options.onListening(server)
-                }
-                if (state === 'closed' && options?.onClosed) {
-                    options.onClosed(server)
-                }
-                if (state === 'errored' && options?.onErrored) {
-                    options.onErrored(server)
-                }
-
-            },
-            _state: 'idle' as RPCServerState
-        } as RPCServer
-
-        if (options?.onInit) {
-            options.onInit(server)
-        }
-
-        const console = createConsole(`[server][${$id}]`, {
-            levels: options?.consoleLevels,
-        })
-
-        const inits = grouped[$id]
-
-        const apps = inits.map(init => createApp(init, {
-            consoleLevels: options?.consoleLevels,
-        }))
-        server.apps = apps
-        const router = createRouter(apps.map(app => ({
-            fetch: app.router.fetch,
-            match(_, url) {
-                return url.pathname.startsWith(app.config.server.base)
+            for (const app of server.apps) {
+                await app.stop();
             }
-        })))
 
-        const onListen = async (addr: ServerAddr) => {
-            server.addr = addr
-            server.error = undefined
-            server.state = 'listening'
+            server.server?.close(reason)
+            await serverFinished.promise
 
-            for (const app of apps) {
-                await app.onStart(addr)
+            return server
+        },
+        async restart() {
+            await this.stop()
+            await this.start()
+
+            return server
+        },
+        get state() {
+            return serverState
+        },
+        set state(state: RPCServerState) {
+            serverState = state;
+            options.onServerStateChanged?.(server);
+        },
+    } as RPCServer
+
+    server.state = 'created'
+
+    function fetch(request: Request): Promise<Response> | Response {
+        const url = new URL(request.url)
+
+        for (const app of server.apps) {
+            if (['started', 'updated'].includes(app.state) && url.pathname.startsWith(app.config.server.base)) {
+                return app.router.fetch(request)
             }
         }
 
-        const onClose = async (error?: any) => {
-            server.error = error
-            server.addr = undefined
-            server.apps = []
-            server.server = undefined
-            server.state = 'closed'
+        return defaultRoute(request)
+    }
 
-            for (const app of apps) {
-                await app.onStop(error)
-            }
+    async function onListen(addr: ServerAddr) {
+        server.addr = addr;
+        server.error = undefined;
+        server.state = 'listening';
+
+        for (const app of server.apps) {
+            await app.start(server);
         }
 
-        const onError = async (error: any) => {
-            server.error = error
-            server.state = 'errored'
+        serverListening.resolve()
+    }
 
-            for (const app of apps) {
-                app.onError(error)
-            }
+    async function onClose() {
+        server.state = 'closed';
+        server.addr = undefined;
+        server.server = undefined;
 
-            await onClose(error)
-
-            if (options?.throwIfError) {
-                throw error
-            }
+        for (const app of server.apps) {
+            await app.stop();
         }
 
+        serverFinished.resolve();
+    }
+
+    async function onError(error: any) {
+        server.state = 'errored';
+        server.error = error;
+
+        for (const app of server.apps) {
+            app.onError(error);
+        }
+
+        await onClose();
+
+        if (options?.throwIfError) {
+            throw error;
+        }
+    }
+
+    async function startServer() {
         try {
+            serverListening = Promise.withResolvers<void>()
+            serverFinished = Promise.withResolvers<void>()
+
             server.state = 'starting'
 
             server.server = await debunoServe.serve({
                 port: config.port,
                 hostname: config.hostname,
-                fetch: router.fetch,
+                fetch,
                 onListen,
                 onClose,
                 onError
@@ -167,8 +428,7 @@ export async function serve(
         } catch (e: any) {
             await onError(e)
         }
-
-        servers.push(server)
     }
-    return servers
+
+    return server
 }

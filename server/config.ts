@@ -1,9 +1,11 @@
 // deno-lint-ignore-file no-process-global
-import { mkdir, rm } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { fileExists, formatBase, getDenoConfig, groupByDeep, mapToSet, resolvePath } from "../utils/mod.ts";
 import type { ConfigInit, Config, ConfigInitMap } from "../types/config.ts";
 import path, { join, resolve } from "node:path";
-import { createConsole, type ConsoleLevel } from "../utils/console.ts";
+import { extendConsole } from "../utils/console.ts";
+
+const console = extendConsole('config')
 
 export const RPC_DIR = process.env.RPC_DIR || process.env.HOME + '/.rpc'
 export const RPC_GEN_DIR = RPC_DIR + '/gen'
@@ -13,6 +15,7 @@ export const RPC_PRO_DIR = RPC_GEN_DIR + '/pro'
 export const RC_FILE_NAMES = [
     'deno.json',
     'rpc.json',
+    '.rpcrc',
     'rpc.config.json',
     'rpc.config.ts',
     'rpc.config.js'
@@ -29,82 +32,88 @@ export const RC_FILE_NAMES_PROP = {
 // await rm(RPC_DIR, { recursive: true, force: true })
 await mkdir(RPC_DIR, { recursive: true });
 
+export async function loadRC(fileNames?: string | string[]): Promise<ConfigInit[]> {
+    if (!Array.isArray(fileNames))
+        fileNames = fileNames ? [fileNames] : []
 
-export async function tryRCFiles(rcFileNames: string[], debug?: ConsoleLevel): Promise<{ filePath: string, config: Record<string, string> }> {
-    const console = createConsole('tryRCFiles', {
-        level: debug
-    })
+    const { config, $file } = await resolveRC(RC_FILE_NAMES.concat(fileNames));
 
+    return mapToSet(config)
+        .map(server => {
+            const $id = [server.$id, server.base].join('')
+            const $uid = [$id, server.path].join(',')
+
+            return {
+                $id,
+                $uid,
+                $file,
+                server: {
+                    ...server,
+                    $file
+                }
+            }
+        })
+}
+
+export async function resolveRC(rcFileNames: string | string[]): Promise<{ $file: string, config: Record<string, string> }> {
     try {
-        rcFileNames = [...new Set(rcFileNames.filter((file: string) => file.endsWith('.json') || file.endsWith('.js') || file.endsWith('.ts')))]
         const cwd = process.cwd()
-        console.debug(`\ntryRCFiles`)
-        console.group()
-        console.log(`Path: ${cwd}`)
-        const msg = `Files: ${rcFileNames.join(', ')}`
-        console.log(msg)
-        console.log(`-`.repeat(msg.length))
+
+        if (!Array.isArray(rcFileNames)) {
+            rcFileNames = [rcFileNames]
+        }
+        rcFileNames = [...new Set(rcFileNames.filter((file: string) => file.endsWith('.json') || file.endsWith('.js') || file.endsWith('.ts')))]
+
+        // console.debug(`resolveRC(${rcFileNames})`)
+        // console.group()
+        // console.debug(`Path:`, cwd)
+        // console.debug(`Files:`, rcFileNames)
 
         for (const file of rcFileNames) {
-            const filePath = path.join(cwd, file)
-            console.group()
+            const $file = path.join(cwd, file)
             console.debug(`try( ${file} )`)
+            console.group()
 
-            if (await fileExists(filePath)) {
-                console.log(`Resolved: ${filePath}`)
+            if (await fileExists($file)) {
+                console.debug(`Resolved: ${$file}`)
 
                 try {
-                    const { default: config } = filePath.endsWith('.json')
-                        ? await import(filePath, { with: { type: 'json' } })
-                        : await import(filePath);
-                    const fileName = filePath.split('/').pop() || ''
+                    const { default: config } = $file.endsWith('.json')
+                        ? await import($file + `?v=${Date.now()}`, { with: { type: 'json' } })
+                        : await import($file + `?v=${Date.now()}`);
+                    const fileName = $file.split('/').pop() || ''
                     const prop = RC_FILE_NAMES_PROP[fileName as keyof typeof RC_FILE_NAMES_PROP]
                     const value = prop ? config[prop] : config
                     if (typeof value === 'object' && value !== null) {
-                        console.log(`Loaded: ${filePath}`)
-                        console.log(value)
-                        console.log(`---`)
-                        return { filePath, config: value }
+                        console.debug(`Loaded: ${$file}`, value)
+                        console.groupEnd()
+                        Object.keys(value).forEach(key => {
+                            value[key] = resolve(value[key])
+                        })
+                        return { $file, config: value }
                     }
                     if (prop)
-                        console.log(`Config file does not contain '${prop}' property: ${filePath}`)
+                        console.debug(`Config file does not contain '${prop}' property: ${$file}`)
                     else
-                        console.log(`Config file does not contain valid properties: ${filePath}`)
+                        console.debug(`Config file does not contain valid properties: ${$file}`)
                 } catch (error: any) {
-                    console.warn(`Load Failed: ${filePath}`)
+                    console.warn(`Load Failed: ${$file}`)
                     console.error(error.name + ':', error.message)
                 }
             } else {
-                console.info(`Not found: ${filePath}`)
+                console.debug(`Not found: ${$file}`)
             }
             console.groupEnd()
         }
 
-        throw new TypeError(`No valid config found at path: ${cwd}`)
+        // console.groupEnd()
 
+        throw new TypeError(`No valid config found at path: ${cwd}`)
     } catch (error) {
         throw error
     }
 }
 
-// export async function resolveRC(file?: string): Promise<string> {
-//     if (!file) {
-//         const cwd = process.cwd()
-
-//         const denoConfigFile = path.join(cwd, 'deno.json');
-//         const rpcConfigFile = path.join(cwd, 'rpc.json');
-
-//         if (await fileExists(rpcConfigFile))
-//             return resolveRC(rpcConfigFile);
-
-//         if (await fileExists(denoConfigFile))
-//             return resolveRC(denoConfigFile);
-
-//         throw new TypeError(`Missing config file at path: ${cwd}, deno.json or rpc.json required`);
-//     }
-
-//     return file
-// }
 
 type ParseRCInput = Record<string, string>;
 
@@ -115,25 +124,32 @@ export function parseRC(input: ParseRCInput, group?: false): ConfigInit[];
 // Implementation
 export function parseRC(input: ParseRCInput, group: boolean = false): any {
     const inits: ConfigInit[] = mapToSet(input)
-        .map(server => ({ server }));
+        .map(server => {
+            const $id = [server.$id, server.base].join('')
+            const $uid = [$id, server.path].join(',')
+            const $file = undefined
+
+            return {
+                $id,
+                $uid,
+                $file,
+                server: {
+                    ...server,
+                    $file
+                }
+            }
+        });
 
     return group === true
         ? groupByDeep(inits, "server.$id")
         : inits;
 }
 
-export async function loadRC(fileNames?: string[], debug?: ConsoleLevel): Promise<ConfigInit[]> {
-    const { config } = await tryRCFiles(RC_FILE_NAMES.concat(fileNames ? fileNames : []), debug);
-
-    return mapToSet(config)
-        .map(server => ({ server }))
-}
-
 export function defineConfig(init: ConfigInit): Config {
     init = { ...init }
     const server = init.server = init.server || {}
 
-    server.path = server.path ? resolve(server.path) : process.cwd()
+    server.path = server.path ? (server.path) : process.cwd()
     server.port = Number(server.port || 0)
     server.base = formatBase(server.base)
 
@@ -148,6 +164,15 @@ export function defineConfig(init: ConfigInit): Config {
     shared.jsxImportUrl = shared.jsxImportUrl || denoConfig.compilerOptions?.jsxImportSource
 
     const config: Config = {
+        get $id() {
+            return init.$id
+        },
+        get $uid() {
+            return init.$uid
+        },
+        get $file() {
+            return init.$file
+        },
         get dev() {
             return init.dev === true
         },

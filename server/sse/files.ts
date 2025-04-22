@@ -5,9 +5,11 @@ import { readDir } from "../../utils/mod.ts";
 import chokidar, { type FSWatcher } from "npm:chokidar"
 import * as meta from '../meta/mod.ts'
 
-export async function getFiles(init: { path: string, base: string, origin: string, filter: (...args: any[]) => boolean }): Promise<File[]> {
+const console = globalThis.console.extend('files')
+
+export async function getFiles(init: { path: string, base: string, origin: string, endpoint: string, filter: (...args: any[]) => boolean }): Promise<File[]> {
     init.origin = new URL(init.origin).origin
-    console.log(`[files][get]`, [init.path, init.origin + init.base])
+    console.debug(`[get]`, [init.path, init.origin + init.base])
 
     return await readDir(init.path)
         .catch(() => [] as string[])
@@ -18,8 +20,10 @@ export async function getFiles(init: { path: string, base: string, origin: strin
                 const file = pathToFileURL(join(init.path, path)).href
                 const http = new URL(base + path, init.origin).href
                 const version = meta.versions[http] || null
+                const timestamp = meta.timestamps[http] || null
                 const dependents = meta.dependents[http] || null
                 const dependencies = meta.dependencies[http] || null
+                const endpoint = init.endpoint
 
                 return {
                     base,
@@ -27,6 +31,8 @@ export async function getFiles(init: { path: string, base: string, origin: strin
                     file,
                     http,
                     version,
+                    endpoint,
+                    timestamp,
                     dependents,
                     dependencies
                 }
@@ -38,6 +44,7 @@ export function watchFiles(init: {
     path: string,
     base: string,
     origin: string | URL,
+    endpoint: string,
     target: SSE | SSETarget,
     filter: (...args: any[]) => boolean
 }, listener: (target: SSE | SSETarget, event: FileEvent) => void): FSWatcher {
@@ -45,9 +52,9 @@ export function watchFiles(init: {
     init.origin = new URL(init.origin).origin
 
     const { path, target, filter } = init
-    console.log(`[files][watch]`, path)
+    console.debug(`[watch]`, path)
 
-    const emit = (type: FileEvent['type']) => (path: string) => listener(target, createFileEvent({ type, path }, { path: init.path, base: init.base, origin: String(init.origin) }))
+    const emit = (type: FileEvent['type']) => (path: string) => listener(target, createFileEvent({ type, path }, { path: init.path, base: init.base, endpoint: init.endpoint, origin: String(init.origin) }))
     const watcher = chokidar.watch(path, {
         ignored: (path, stats) => (stats?.isFile() && !filter(path)) as boolean,
         persistent: true,
@@ -61,14 +68,16 @@ export function watchFiles(init: {
 }
 
 
-function createFileEvent(event: { type: FileEvent['type'], path: string }, init: { path: string, base: string, origin: string }): FileEvent {
+function createFileEvent(event: { type: FileEvent['type'], path: string }, init: { path: string, base: string, endpoint: string, origin: string }): FileEvent {
     const type = event.type
     const base = init.base
-    const path = event.path.replace(init.path + "/", init.base)
+    const path = event.path.replace(init.path + "/", '')
     const file = new URL(event.path, 'file://').href
-    const http = new URL(path, init.origin).href
+    const http = new URL(base + path, init.origin).href
     const version = 0
+    const endpoint = init.endpoint
     const timestamp = Date.now()
 
-    return { type, base, path, file, http, version, timestamp, dependents: null, dependencies: null }
+
+    return { type, base, path, file, http, version, endpoint, timestamp, dependents: null, dependencies: null }
 }

@@ -1,27 +1,26 @@
-#!/usr/bin/env -S deno -A
+// #!/usr/bin/env deno -A --watch
 import { parseArgs } from "jsr:@std/cli/parse-args";
 import { start } from "./server/start.ts";
 import process from "node:process";
 import { loadRC } from "./server/config.ts";
 import path from "node:path";
-import pkg from "./package.json" with    { type: "json" };
-import { cyan, red, gray, green, magenta, yellow, blue } from "./utils/colors.ts";
-import { createConsole } from "./utils/console.ts";
+import pkg from "./package.json" with { type: "json" };
+import { gray, green, yellow, blue } from "./utils/colors.ts";
 import { fileExists } from "./utils/mod.ts";
-import { mkdir, rm } from "node:fs/promises";
+import { rm } from "node:fs/promises";
 import { copyFolder } from "./utils/fs.ts";
+import { extendConsole } from "./utils/console.ts";
+
+const console = extendConsole('cli')
 
 const BIN = Object.keys(pkg.bin)[0];
 const VERSION = pkg.version
 
-const args = parseArgs(process.argv.slice(2), {
-
-});
+const args = parseArgs(process.argv.slice(2));
 const command = args._.shift() as string;
 const rcFileArgs = args._.length > 0
     ? args._.filter(a => typeof a === 'string') // args._[args._.length - 1] as string
     : undefined
-// const isRCFile = rcFileArg && (rcFileArg?.endsWith('.json') || rcFileArg?.endsWith('.js') || rcFileArg?.endsWith('.ts'));
 const rcFileNames = rcFileArgs
     ? rcFileArgs.filter((arg: string) => arg.endsWith('.json') || arg.endsWith('.js') || arg.endsWith('.ts'))
     : undefined
@@ -34,6 +33,9 @@ const options = {
         default: false,
     },
 }
+const argsForce = args.force || args.f || false
+const argsRc = args.rc || args.r || args["--rc"] || false
+
 const commands = {
     start: {
         description: "Start the RPC server",
@@ -77,12 +79,6 @@ const commands = {
     },
 }
 
-
-const console = createConsole('cli', {
-    level: args.debug === true ? "debug" : args.debug || (process.env.RPC_DEBUG ? 'debug' : 'info'),
-})
-
-console.debug(args)
 
 const CREATE_TEMPLATES = {
     "basic": {
@@ -157,21 +153,30 @@ switch (command) {
         break;
     case "start":
         try {
-            await start()
+            const instance = await start()
+
+            process.on('SIGINT', async () => {
+                try {
+                    await instance.shutdown()
+                } catch (e: any) {
+                    console.error(e)
+                }
+
+                process.exit()
+            })
         } catch (e: any) {
-            console.log(e.message)
+            console.error(e)
         }
         break;
     case "config":
-        console.debug(`rpc config ${rcFileNames || ''}`)
         try {
-            await loadRC(rcFileNames, console.level)
-                .then(rc => rc.reduce((acc, { server }) => {
-                    // acc[`${server.$addr}`] = server.endpoint
-                    acc[`${server.endpoint}`] = path.resolve(server.path)
-                    return acc
-                }, {} as Record<string, any>))
-                .then(console.log)
+            const rc = await loadRC(rcFileNames);
+            const map = rc.reduce((acc, { server }) => {
+                // acc[`${server.$addr}`] = server.endpoint
+                acc[`${server.endpoint}`] = path.resolve(server.path)
+                return acc
+            }, {} as Record<string, any>)
+            console.log(map)
         } catch (e: any) {
             console.error(e.message)
         }

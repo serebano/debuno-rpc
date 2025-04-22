@@ -3,30 +3,28 @@ import {
     ServerSentEventStreamTarget,
 } from "https://deno.land/std@0.204.0/http/server_sent_event.ts";
 import type { SSE, SSETarget } from "./types.ts";
-import { createConsole, type ConsoleLevel } from "../../utils/console.ts";
+
+const console = globalThis.console.extend('sse')
 
 export function createSSE(opts?: {
     keepAlive?: number | boolean,
     space?: string | number,
-    consoleName?: string,
-    consoleLevels?: ConsoleLevel[],
+    onTargetCreated?: (target: SSETarget) => void
 }): SSE {
 
     opts = opts || {}
     const targets = new Set<SSETarget>()
     let eventId = 1
 
-    const console = createConsole(opts?.consoleName || '[sse]', {
-        levels: opts?.consoleLevels,
-    })
-
     const send = (data: any) => emit('message', data)
 
     function emit(event: string, data: any) {
         const id = eventId++
+        if (typeof data === 'object')
+            data.timestamp = Date.now()
         const sse = new ServerSentEvent(event, { id, data, space: opts?.space })
 
-        console.log(`emit(${event})`, id, data)
+        console.debug(`emit(${event})`, id, data)
 
         for (const target of targets) {
             target.dispatchEvent(sse)
@@ -39,7 +37,13 @@ export function createSSE(opts?: {
         }
     }
 
-    function createTarget() {
+    async function close() {
+        for (const target of targets) {
+            await target.close()
+        }
+    }
+
+    async function createTarget() {
         const target = new ServerSentEventStreamTarget({ keepAlive: opts?.keepAlive }) as SSETarget
 
         target.id = targets.size + 1
@@ -50,13 +54,17 @@ export function createSSE(opts?: {
             const target = e.target as SSETarget
             targets.delete(target)
             comment(`target #${target.id} closed (${targets.size})`)
-            console.log(`[sse][close]`, target.id)
+
+            console.debug(`[close]`, target.id)
         })
 
         target.comment(`welcome #${target.id}`)
         comment(`target #${target.id} joined (${targets.size + 1})`)
         targets.add(target)
-        console.log(`[sse][open]`, target.id)
+
+        console.debug(`[open]`, target.id)
+
+        await opts?.onTargetCreated?.(target)
 
         return target
     }
@@ -64,6 +72,7 @@ export function createSSE(opts?: {
     return {
         targets,
         eventId,
+        close,
         emit,
         send,
         comment,

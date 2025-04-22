@@ -229,7 +229,7 @@ export function resolvePath(fileName: string | URL, base?: string | URL) {
 }
 
 export function moduleVersionTransform(source: string, file: string, http: string) {
-    console.log(`   * deps version sync`)
+    console.log(`   * deps version sync`, http)
     // console.log('moduleVersionTransform(', [file, http], ')')
 
     const parentUrl = new URL(http)
@@ -241,7 +241,8 @@ export function moduleVersionTransform(source: string, file: string, http: strin
             importPath.endsWith('.tsx') ||
             importPath.endsWith('.js') ||
             importPath.endsWith('.jsx') ||
-            importPath.endsWith('.json')
+            importPath.endsWith('.json') ||
+            importPath.endsWith('.html')
         ) {
 
             const depUrl = new URL(importPath, parentId)

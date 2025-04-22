@@ -25,3 +25,8 @@ interface ImportMeta {
     readonly rpc: import('./rpc.ts').RPCContext
     readonly env: ImportMetaEnv
 }
+
+interface Console {
+    create(namespace: string, options?: import('../utils/console.ts').CreateConsoleOptions): import("../utils/console.ts").XConsole
+    extend(namespace: string, options?: import('../utils/console.ts').CreateConsoleOptions): import("../utils/console.ts").XConsole
+}

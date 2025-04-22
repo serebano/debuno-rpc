@@ -1,4 +1,5 @@
 export interface Route {
+    name?: string
     match(request: Request, url: URL): Promise<boolean> | boolean;
     fetch(request: Request, url: URL): Promise<Response | void> | Response | void;
 }

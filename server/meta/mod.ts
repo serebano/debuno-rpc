@@ -1,4 +1,3 @@
-type Deps = Record<string, Record<string, number | null>>
 
 export interface Meta {
     versions: Record<string, number>
@@ -14,12 +13,57 @@ export interface ModuleMeta {
     dependencies: Record<string, number | null>;
 }
 
+
+type Deps = Record<string, Record<string, number | null>>
+export interface Dependent { url: string, importer: string, version: number, timestamp: number }
+
 export const versions = {} as Record<string, number>;
 export const timestamps = {} as Record<string, number>;
-export const dependents = {} as Deps
 export const dependencies = {} as Deps
+export const dependents = {} as Deps
+
+export function getDependents(url: string, updateVersion: boolean = false): Dependent[] {
+    function _getDependents(
+        url: string,
+        version: number,
+        timestamp: number,
+        arr: Dependent[] = [],
+        visited = new Set<string>()
+    ): Dependent[] {
+        if (visited.has(url)) return arr;
+        visited.add(url);
+
+        versions[url] = version;
+
+        for (const importer of Object.keys(dependents[url] || {})) {
+            arr.push({ url, importer, version, timestamp });
+
+            const v = updateVersion ? (versions[importer] || 0) + 1 : (versions[importer] ?? version);
+            _getDependents(importer, v, timestamp, arr, visited);
+        }
+
+        return arr;
+    }
+
+    return _getDependents(url, versions[url] ?? 0, timestamps[url] ?? Date.now());
+}
+
+// export function getDependents(url: string, updateVersion: boolean = false): Dependent[] {
+//     function _getDependents(url: string, version: number, timestamp: number, arr: Dependent[] = []) {
+//         versions[url] = version
+//         for (const importer of Object.keys(dependents[url] || {})) {
+//             arr.push({ url, importer, version, timestamp })
+//             const v = updateVersion ? (versions[importer] || 0) + 1 : versions[importer]
+//             _getDependents(importer, v, timestamp, arr)
+//         }
+//         return arr
+//     }
+
+//     return _getDependents(url, versions[url], timestamps[url])
+// }
 
 const meta = {
+    rm,
     get,
     getDependents,
     incVersion,
@@ -28,6 +72,7 @@ const meta = {
     dependents,
     dependencies
 } as Meta & {
+    rm(url: string): void
     get(): Meta
     get(url: string): ModuleMeta
     incVersion: (id: string) => void
@@ -43,6 +88,23 @@ export function get(url?: string): Meta | ModuleMeta {
         dependents: meta.dependents[url],
         dependencies: meta.dependencies[url]
     } : meta
+}
+
+export function rm(url: string): void {
+    delete meta.versions[url];
+    delete meta.timestamps[url];
+    delete meta.dependents[url];
+    delete meta.dependencies[url];
+
+    for (const key of Object.keys(meta.dependents)) {
+        const obj = meta.dependents[key]
+        delete obj[url]
+    }
+
+    for (const key of Object.keys(meta.dependencies)) {
+        const obj = meta.dependencies[key]
+        delete obj[url]
+    }
 }
 
 export function incVersion(id: string) {
@@ -64,18 +126,3 @@ export function incVersion(id: string) {
     }
 }
 
-export interface Dependent { url: string, importer: string, version: number, timestamp: number }
-
-export function getDependents(url: string, updateVersion: boolean = false): Dependent[] {
-    function _getDependents(url: string, version: number, timestamp: number, arr: Dependent[] = []) {
-        versions[url] = version
-        for (const importer of Object.keys(dependents[url] || {})) {
-            arr.push({ url, importer, version, timestamp })
-            const v = updateVersion ? (versions[importer] || 0) + 1 : versions[importer]
-            _getDependents(importer, v, timestamp, arr)
-        }
-        return arr
-    }
-
-    return _getDependents(url, versions[url], timestamps[url])
-}

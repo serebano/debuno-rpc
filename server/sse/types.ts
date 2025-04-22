@@ -34,10 +34,11 @@ export type SSETarget = ServerSentEventStreamTarget & {
 export interface SSE {
     targets: Set<SSETarget>;
     eventId: number;
-    createTarget(): SSETarget
+    createTarget(): Promise<SSETarget>
     comment(comment: any): void;
     emit(event: string, data: any): void;
     send(data: any): void;
+    close(): Promise<void>
 }
 
 export interface File {
@@ -46,6 +47,7 @@ export interface File {
     file: string;
     http: string;
     version: number | null;
+    endpoint: string;
     dependents: Record<string, number | null> | null;
     dependencies: Record<string, number | null> | null
 }

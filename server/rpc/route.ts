@@ -28,24 +28,21 @@ export interface RpcHandlerInit {
  * @returns A function that processes incoming requests.
  */
 
-export default createRoute((config, _context) => {
+export default createRoute((app) => {
     const init: RpcHandlerInit = {
-        jsxImportUrl: config.shared.jsxImportUrl,
-        rpcImportUrl: config.client.rpcImportUrl,
-        hotImportUrl: config.client.hotImportUrl,
-        envImportUrl: config.client.envImportUrl,
-        protocol: config.protocol,
-        srcKey: config.srcKey,
-        outKey: config.genKey,
-        genDir: config.genDir
+        jsxImportUrl: app.config.shared.jsxImportUrl,
+        rpcImportUrl: app.config.client.rpcImportUrl,
+        hotImportUrl: app.config.client.hotImportUrl,
+        envImportUrl: app.config.client.envImportUrl,
+        protocol: app.config.protocol,
+        srcKey: app.config.srcKey,
+        outKey: app.config.genKey,
+        genDir: app.config.genDir
     }
 
-    const { path, base } = config.server
+    // const { path, base } = app.config.server
 
-    const srcDir = (path);
-    const srcKey = init.srcKey || 'src' // basename(srcDir)
-    const outKey = init.outKey || 'out' // basename(outDir)
-    const indexFileName = init.indexFileName || 'index.html'
+
 
     init.transform = init.transform || function transform(code, file, http, req) {
         code = moduleVersionTransform(code, file, http)
@@ -56,22 +53,27 @@ export default createRoute((config, _context) => {
 
     return {
         match(request, url) {
-            return ['GET', 'POST'].includes(request.method) && url.pathname.startsWith(base)
+            return ['GET', 'POST'].includes(request.method) && url.pathname.startsWith(app.config.server.base)
         },
         async fetch(request, url): Promise<Response> {
+            const srcDir = (app.config.server.path);
+            const srcKey = init.srcKey || 'src' // basename(srcDir)
+            const outKey = init.outKey || 'out' // basename(outDir)
+            const indexFileName = init.indexFileName || 'index.html'
+
             const reqUrl = url.pathname.endsWith('/') ? url.href + indexFileName : url.href
             const loc = parseLocation(reqUrl)
             url = new URL(loc.url);
 
             const genDir = init.genDir
-                ? join(init.genDir, config.server.base)
-                : RPC_PRO_DIR + ('/' + [url.protocol, url.host, config.server.base].join('/')) // srcDir + '@gen'
+                ? join(init.genDir, app.config.server.base)
+                : RPC_PRO_DIR + ('/' + [url.protocol, url.host, app.config.server.base].join('/')) // srcDir + '@gen'
 
-            url.pathname = url.pathname.startsWith(base)
-                ? url.pathname.slice(base.length)
+            url.pathname = url.pathname.startsWith(app.config.server.base)
+                ? url.pathname.slice(app.config.server.base.length)
                 : url.pathname
 
-            const env = config.getEnv(url)
+            const env = app.config.getEnv(url)
 
             const isBrowser = request.headers.get('user-agent')?.includes('Mozilla') ?? false;
             const isDocument = isBrowser && (request.headers.get('sec-fetch-dest') === 'document' || request.headers.get('x-dest') === 'document');

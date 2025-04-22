@@ -2,10 +2,14 @@ export interface ConfigInitMap {
     [key: string]: ConfigInit[]
 }
 export interface ConfigInit {
+    $id: string,
+    $uid: string,
+    $file?: string,
     dev?: boolean
     server: {
         readonly $id: string;
         readonly $addr: string;
+        readonly $file?: string,
         endpoint: string;
         url: URL;
         path: string;
@@ -24,6 +28,9 @@ export interface ConfigInit {
 }
 
 export interface Config {
+    readonly $id: string
+    readonly $uid: string
+    readonly $file?: string
     readonly dev: boolean
     readonly runtime: string
     readonly server: ConfigInit['server'];
