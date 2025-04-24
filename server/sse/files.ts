@@ -1,7 +1,7 @@
 import type { File, FileEvent, SSE, SSETarget } from "./types.ts";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { readDir } from "../../utils/mod.ts";
+import { getLangFromExt, readDir } from "../../utils/mod.ts";
 import chokidar, { type FSWatcher } from "npm:chokidar"
 import * as meta from '../meta/mod.ts'
 
@@ -24,8 +24,10 @@ export async function getFiles(init: { path: string, base: string, origin: strin
                 const dependents = meta.dependents[http] || null
                 const dependencies = meta.dependencies[http] || null
                 const endpoint = init.endpoint
+                // const lang = getLangFromExt(file)
 
                 return {
+                    // lang,
                     base,
                     path,
                     file,
@@ -77,6 +79,7 @@ function createFileEvent(event: { type: FileEvent['type'], path: string }, init:
     const version = 0
     const endpoint = init.endpoint
     const timestamp = Date.now()
+    // const lang = getLangFromExt(file)
 
 
     return { type, base, path, file, http, version, endpoint, timestamp, dependents: null, dependencies: null }

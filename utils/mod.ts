@@ -4,6 +4,7 @@ import process from "node:process";
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
+import type { App } from "../types/app.ts";
 
 export const fileExists = async (path: string) => {
     try {
@@ -224,11 +225,67 @@ export function getContentType(filename: string): string {
     return ext ? mimeTypes[ext] : 'text/plain';
 }
 
+export function getLangFromExt(filename: string): string {
+    const map: Record<string, string> = {
+        'd.ts': 'typescript',
+        'tsx': 'typescript',
+        'ts': 'typescript',
+        'jsx': 'javascript',
+        'js': 'javascript',
+        'json': 'json',
+        'sh': 'shell',
+        'html': 'html',
+        'css': 'css',
+        'scss': 'scss',
+        'md': 'markdown',
+        'yaml': 'yaml',
+        'yml': 'yaml',
+        'xml': 'xml',
+        'sql': 'sql',
+    };
+
+    const parts = filename.toLowerCase().split('.').filter(Boolean);
+    // Check from most specific (e.g., d.ts) to least (e.g., ts)
+    for (let i = 1; i < parts.length; i++) {
+        const ext = parts.slice(i).join('.');
+        if (map[ext]) return map[ext];
+    }
+
+    return parts[parts.length - 1] // 'Unknown';
+}
+
 export function resolvePath(fileName: string | URL, base?: string | URL) {
     return new URL(fileName, base).pathname
 }
 
-export function moduleVersionTransform(source: string, file: string, http: string) {
+export function resolveImportMap(importMap: Record<string, string>, importPath: string, parentUrl: string) {
+    const keys = Object.keys(importMap)
+    const exactKey = keys.find(key => importPath === key)
+    if (exactKey) {
+        const value = importMap[exactKey]
+        if (value.startsWith('.'))
+            return new URL(value, parentUrl)
+        return new URL(value)
+    }
+    const pathKey = keys.find(key => key.endsWith('/') && importPath.startsWith(key))
+    if (pathKey) {
+        const value = importMap[pathKey] + importPath.slice(pathKey.length)
+        if (value.startsWith('.'))
+            return new URL(value, parentUrl)
+        return new URL(value)
+    }
+}
+
+export function removeInlineSourceMap(code: string): string {
+    return code
+        .replace(
+            /^.*\/\/[#@]\s*sourceMappingURL=data:application\/json[^]*?(\r?\n|$)/gm,
+            ''
+        )
+    // .replace(/(\r?\n){2,}/g, '\n'); // collapse multiple blank lines to one
+}
+
+export function moduleVersionTransform(source: string, file: string, http: string, app: App) {
     console.log(`   * deps version sync`, http)
     // console.log('moduleVersionTransform(', [file, http], ')')
 
@@ -245,7 +302,8 @@ export function moduleVersionTransform(source: string, file: string, http: strin
             importPath.endsWith('.html')
         ) {
 
-            const depUrl = new URL(importPath, parentId)
+            const depUrl = resolveImportMap(app.context.importMap, importPath, parentId) ?? new URL(importPath, parentId)
+
             const depId = depUrl.origin + depUrl.pathname
 
             meta.dependents[depId] = meta.dependents[depId] || {}

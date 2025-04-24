@@ -12,6 +12,7 @@ import type { App, AppState } from "../types/app.ts";
 import type { FSWatcher } from "npm:chokidar";
 import { extendConsole } from "../utils/console.ts";
 import type { RPCServer } from "./serve.ts";
+import { readJSON } from "../utils/json.ts";
 
 
 
@@ -47,12 +48,51 @@ class State<T> {
 }
 
 function createContext(app: App, opts?: AppOptions): Context {
-    return {
+    let files: any
+    let importMap: any
+    let importMapFile: any
+
+    const context: Context = {
         get apps() {
             return opts?.getApps?.(app) ?? []
         },
         get state() {
             return app.state
+        },
+        async getFiles(force) {
+            if (!files || force)
+                files = await getFiles({
+                    path: app.config.server.path,
+                    base: app.config.server.base,
+                    filter: app.config.filter,
+                    origin: app.config.server.endpoint,
+                    endpoint: app.config.server.endpoint
+                })
+            return files
+        },
+        async getImportMap(force) {
+            if (!importMap || force) {
+                importMap = {}
+                const files = await this.getFiles()
+                const denoConfigFile = files.find(file => file.path === 'deno.json')
+                if (denoConfigFile) {
+                    importMapFile = denoConfigFile.file
+                    const denoConfig = await readJSON(denoConfigFile.file)
+                    if (denoConfig.imports) {
+                        importMap = denoConfig.imports
+                    }
+                }
+            }
+            return importMap
+        },
+        get files() {
+            return files
+        },
+        get importMap() {
+            return importMap
+        },
+        get importMapFile() {
+            return importMapFile
         },
         start: app.start,
         stop: app.stop,
@@ -74,23 +114,12 @@ function createContext(app: App, opts?: AppOptions): Context {
                     target.emit('endpoints', apps.map(app => app.endpoint))
 
 
-                // target.emit('apps', apps.map(app => ({
-                //     $id: app.$id,
-                //     state: app.state,
-                //     endpoint: app.endpoint,
-                //     path: app.config.server.path
-                // })))
-
-                target.emit('files', await getFiles({
-                    path: app.config.server.path,
-                    base: app.config.server.base,
-                    filter: app.config.filter,
-                    origin: app.config.server.endpoint,
-                    endpoint: app.config.server.endpoint
-                }))
+                target.emit('files', await context.getFiles(true))
+                target.emit('imports', await context.getImportMap(true))
             }
         })
     };
+    return context
 }
 
 export function createApp(init: ConfigInit, opts?: AppOptions): App {
@@ -161,13 +190,8 @@ export function createApp(init: ConfigInit, opts?: AppOptions): App {
         await state.set('updated')
 
         if (pathChanged) {
-            app.context.sse.emit('files', await getFiles({
-                path: app.config.server.path,
-                base: app.config.server.base,
-                filter: app.config.filter,
-                origin: app.config.server.url.origin,
-                endpoint: app.config.server.endpoint
-            }))
+            app.context.sse.emit('files', await app.context.getFiles(true))
+            app.context.sse.emit('imports', await app.context.getImportMap(true))
         }
 
         await startFilesWatcher()
@@ -206,6 +230,7 @@ export function createApp(init: ConfigInit, opts?: AppOptions): App {
         });
 
     }
+
     async function start(server?: RPCServer) {
         if (['started', 'updated'].includes(app.state))
             return app
@@ -214,6 +239,8 @@ export function createApp(init: ConfigInit, opts?: AppOptions): App {
             app.context.server = server
 
         await addEndpoint(app.config); // (e) => app.context.sse.emit('endpoint', e)
+        await app.context.getFiles(true)
+        await app.context.getImportMap(true)
         await startFilesWatcher()
 
         await state.set('started')

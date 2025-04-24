@@ -44,6 +44,6 @@ export async function atomicWriteJSON(filePath: string, data: any): Promise<void
  * @returns The parsed JSON data.
  */
 export async function readJSON(filePath: string): Promise<any> {
-    const fileContent = await fs.promises.readFile(filePath, 'utf8');
+    const fileContent = await fs.promises.readFile(filePath.replace('file:///', '/'), 'utf8');
     return JSON.parse(fileContent);
 }

@@ -122,8 +122,11 @@ export async function transformDir(srcDir: string, outDir: string, options?: RPC
 }
 
 export async function transformFile(srcFile: string, outFile: string, options?: RPCTransformInit & { sourceFilePath?: string }) {
+    const isTsOrJs = srcFile.endsWith('.ts') || srcFile.endsWith('.mts') || srcFile.endsWith('.js') || srcFile.endsWith('.mjs') || srcFile.endsWith('.tsx') || srcFile.endsWith('.jsx')
     const source = await readFile(srcFile, "utf-8");
-    const result = await transform(srcFile, source, options);
+    const result = isTsOrJs
+        ? await transform(srcFile, source, options)
+        : { code: source, source: { code: source, map: undefined } }
 
     await mkdir(path.dirname(outFile), { recursive: true });
     await writeFile(outFile, result.code);

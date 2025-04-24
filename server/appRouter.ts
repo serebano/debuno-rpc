@@ -123,28 +123,29 @@ export function createAppRouter(app: App): Router {
             appId
         ),
         /** ?meta */
-        route(
-            (req, url) => url.searchParams.has('meta'),
-            async (req, url) => new Response(JSON.stringify(url.pathname !== app.config.server.base
-                ? {
-                    endpoint: app.config.server.endpoint,
-                    base: app.config.server.base,
-                    http: url.origin + url.pathname,
-                    file: app.config.server.path + url.pathname.replace(app.config.server.base, '/'),
-                    source: moduleVersionTransform(
-                        await readFile(app.config.server.path + url.pathname.replace(app.config.server.base, '/'), 'utf-8'),
-                        app.config.server.path + url.pathname.replace(app.config.server.base, '/'),
-                        url.origin + url.pathname
-                    ),
-                    ...meta.get(url.origin + url.pathname)
-                }
-                : meta.get(), null, 4), {
-                headers: {
-                    'content-type': 'application/json'
-                }
-            }),
-            appId
-        ),
+        // route(
+        //     (req, url) => url.searchParams.has('meta'),
+        //     async (req, url) => new Response(JSON.stringify(url.pathname !== app.config.server.base
+        //         ? {
+        //             endpoint: app.config.server.endpoint,
+        //             base: app.config.server.base,
+        //             path: url.pathname.slice(app.config.server.base.length),
+        //             http: url.origin + url.pathname,
+        //             file: app.config.server.path + url.pathname.replace(app.config.server.base, '/'),
+        //             source: moduleVersionTransform(
+        //                 await readFile(app.config.server.path + url.pathname.replace(app.config.server.base, '/'), 'utf-8'),
+        //                 app.config.server.path + url.pathname.replace(app.config.server.base, '/'),
+        //                 url.origin + url.pathname
+        //             ),
+        //             ...meta.get(url.origin + url.pathname)
+        //         }
+        //         : meta.get(), null, 4), {
+        //         headers: {
+        //             'content-type': 'application/json'
+        //         }
+        //     }),
+        //     appId
+        // ),
         /** ?server */
         route(
             (req, url) => url.searchParams.has('server'),

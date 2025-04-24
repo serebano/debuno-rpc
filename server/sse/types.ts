@@ -42,6 +42,7 @@ export interface SSE {
 }
 
 export interface File {
+    lang?: string;
     base: string;
     path: string;
     file: string;
