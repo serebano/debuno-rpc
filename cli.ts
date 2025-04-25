@@ -35,7 +35,7 @@ const options = {
         default: false,
     },
 }
-// const argsForce = args.force || args.f || false
+const inspectDev = args.idev || args["--idev"] || false
 // const argsRc = args.rc || args.r || args["--rc"] || false
 
 const commands = {
@@ -129,15 +129,16 @@ const shutdown = async () => {
 
 process.on('SIGINT', shutdown)
 
-type CMDS = 'x' | 'o' | 'i' | 'e' | 'h' | 'r'
+type CMDS = 'x' | 'u' | 'i' | 'e' | 'h' | 'r' | 'c'
+const validVals: CMDS[] = ['x', 'u', 'i', 'e', 'h', 'r', 'c']
 
 process.stdin.on('data', async data => {
     const value = data.toString('utf8', 0, 2).trim()
     // console.log('value', value)
-    const validVals = ['x', 'o', 'i', 'e', 'h', 'r'] as CMDS[]
     const validIdxs = instance?.apps.map((_, idx) => idx) || []
 
-    let [val, idx] = value.split('') as unknown as [val: CMDS, idx: number]
+    const input = value.split('') as unknown as [cmd: CMDS, idx?: number]
+    let [val, idx] = input
     val = val || 'h'
     idx = Number(idx || 0)
 
@@ -145,20 +146,23 @@ process.stdin.on('data', async data => {
         get x() {
             return `Shutdown all ${yellow(validIdxs.length.toString())} apps`
         },
-        get o() {
-            return `Open in dash app#${yellow(idx.toString())} ${green(instance?.apps.at(idx)?.endpoint ?? '')}`
+        get i() {
+            return `Inspect app#${yellow(idx.toString())} ${green(instance?.apps.at(idx)?.endpoint ?? '')}`
         },
         get e() {
             return `Edit app#${yellow(idx.toString())} ${green(instance?.apps.at(idx)?.endpoint ?? '')} ${gray(instance?.apps.at(idx)?.path ?? '')}`
         },
-        get i() {
-            return `Prints info`
+        get c() {
+            return `Code app#${yellow(idx.toString())} ${green(instance?.apps.at(idx)?.endpoint ?? '')} ${gray(instance?.apps.at(idx)?.path ?? '')}`
+        },
+        get u() {
+            return `Show urls`
         },
         get r() {
-            return `Restart all servers/apps`
+            return `Restart servers/apps`
         },
         get h() {
-            return `Prints help`
+            return `Help`
         }
     }
 
@@ -171,15 +175,15 @@ process.stdin.on('data', async data => {
 
     const desc: Record<CMDS, string> = {
         e: `edit in vscode`,
+        c: `run code command`,
+        i: `inspect app`,
         h: `show help`,
-        i: `show info`,
-        o: `open in dash`,
+        u: `show urls`,
         r: `restart servers/apps`,
         x: `quit`
     }
 
     function help() {
-        console.log(white((`\nShortcuts`)))
         console.log(Object.entries(desc).map(([cmd, desc]) => gray(`press ${white(bold(`${cmd} + enter`))} to ${desc}`)).join('\n'))
     }
 
@@ -205,15 +209,24 @@ process.stdin.on('data', async data => {
             await shutdown()
             break
         case "r":
-            await instance?.reload()
+            if (input.length === 1)
+                await instance?.reload()
+            else
+                await instance?.apps.at(idx)?.restart()
             break
-        case "o":
-            await instance?.apps.at(idx)?.open()
+        case "i":
+            await instance?.apps.at(idx)?.inspect(inspectDev)
+            break
+        case "c": {
+            const app = instance?.apps.at(idx)
+            if (app)
+                await app.exec('code', [app.path])
+        }
             break
         case "e":
             await instance?.apps.at(idx)?.edit()
             break
-        case "i":
+        case "u":
             console.log(gray(instance?.apps.map(app => ['endpoint: ' + green(app.endpoint), 'path: ' + cyan(app.path), 'state: ' + yellow(app.state)].join('\n')).join('\n-----------\n') || ''))
             break
         default:

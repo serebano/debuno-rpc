@@ -14,6 +14,8 @@ import { extendConsole } from "../utils/console.ts";
 import type { RPCServer } from "./serve.ts";
 import { readJSON } from "../utils/json.ts";
 import { open } from "../utils/mod.ts";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 
 
 
@@ -174,7 +176,9 @@ export function createApp(init: ConfigInit, opts?: AppOptions): App {
     app.context = createContext(app, opts);
     app.router = createAppRouter(app);
 
-    app.open = (dev?: boolean) => open(`${app.config.protocol}${dev ? 'dev' : ''}://${app.config.server.host}${app.config.server.base}`)
+
+    app.inspect = (dev?: boolean) => open(`${app.config.protocol}${dev ? 'dev' : ''}://${app.config.server.host}${app.config.server.base}`)
+    app.exec = (file: string, args?: []) => promisify(execFile)(file, args) // (file: string, args?: []) => execFile(file, args)
     app.edit = () => {
         if (app.context.importMapFile)
             return open(`vscode://file${app.context.importMapFile.replace('file://', '')}`)
