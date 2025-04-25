@@ -30,7 +30,7 @@ export async function transform(fileName: string, code: string, init?: RPCTransf
 
     const RPC_CALL = (...args: any[]) => `import.meta.rpc(${args.join(', ')})`
 
-    console.log(`transform > ${fileName} (${init?.format})`)
+    console.debug(`transform > ${fileName} (${init?.format})`)
 
     let source = { code }
     if (init?.format === 'javascript') {

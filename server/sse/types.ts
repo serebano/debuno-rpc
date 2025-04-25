@@ -36,7 +36,7 @@ export interface SSE {
     eventId: number;
     createTarget(): Promise<SSETarget>
     comment(comment: any): void;
-    emit(event: string, data: any): void;
+    emit(event: string, data?: any): void;
     send(data: any): void;
     close(): Promise<void>
 }

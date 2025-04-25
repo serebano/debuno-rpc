@@ -5,13 +5,15 @@ import process from "node:process";
 import { loadRC } from "./server/config.ts";
 import path from "node:path";
 import pkg from "./package.json" with { type: "json" };
-import { gray, green, yellow, blue } from "./utils/colors.ts";
+import { gray, green, yellow, blue, magenta, red, bold, white, italic, underline, cyan } from "./utils/colors.ts";
 import { fileExists } from "./utils/mod.ts";
 import { rm } from "node:fs/promises";
 import { copyFolder } from "./utils/fs.ts";
 import { extendConsole } from "./utils/console.ts";
+import type { RPCServeInstance } from "./server/serve.ts";
 
-const console = extendConsole('cli')
+const console = extendConsole('cli', { showNS: false, colors: { info: 'white', debug: 'white' } })
+console.clear()
 
 const BIN = Object.keys(pkg.bin)[0];
 const VERSION = pkg.version
@@ -33,8 +35,8 @@ const options = {
         default: false,
     },
 }
-const argsForce = args.force || args.f || false
-const argsRc = args.rc || args.r || args["--rc"] || false
+// const argsForce = args.force || args.f || false
+// const argsRc = args.rc || args.r || args["--rc"] || false
 
 const commands = {
     start: {
@@ -114,6 +116,114 @@ async function create(rpcDir: string, opts?: { force: boolean }) {
 
 }
 
+let instance: RPCServeInstance | undefined
+const shutdown = async () => {
+    console.log()
+    try {
+        await instance?.shutdown()
+    } catch (e: any) {
+        console.error(e)
+    }
+    process.exit()
+}
+
+process.on('SIGINT', shutdown)
+
+type CMDS = 'x' | 'o' | 'i' | 'e' | 'h' | 'r'
+
+process.stdin.on('data', async data => {
+    const value = data.toString('utf8', 0, 2).trim()
+    // console.log('value', value)
+    const validVals = ['x', 'o', 'i', 'e', 'h', 'r'] as CMDS[]
+    const validIdxs = instance?.apps.map((_, idx) => idx) || []
+
+    let [val, idx] = value.split('') as unknown as [val: CMDS, idx: number]
+    val = val || 'h'
+    idx = Number(idx || 0)
+
+    const hints = {
+        get x() {
+            return `Shutdown all ${yellow(validIdxs.length.toString())} apps`
+        },
+        get o() {
+            return `Open in dash app#${yellow(idx.toString())} ${green(instance?.apps.at(idx)?.endpoint ?? '')}`
+        },
+        get e() {
+            return `Edit app#${yellow(idx.toString())} ${green(instance?.apps.at(idx)?.endpoint ?? '')} ${gray(instance?.apps.at(idx)?.path ?? '')}`
+        },
+        get i() {
+            return `Prints info`
+        },
+        get r() {
+            return `Restart all servers/apps`
+        },
+        get h() {
+            return `Prints help`
+        }
+    }
+
+    // Shortcuts
+    // press r + enter to restart the server
+    // press u + enter to show server url
+    // press o + enter to open in browser
+    // press c + enter to clear console
+    // press q + enter to quit
+
+    const desc: Record<CMDS, string> = {
+        e: `edit in vscode`,
+        h: `show help`,
+        i: `show info`,
+        o: `open in dash`,
+        r: `restart servers/apps`,
+        x: `quit`
+    }
+
+    function help() {
+        console.log(white((`\nShortcuts`)))
+        console.log(Object.entries(desc).map(([cmd, desc]) => gray(`press ${white(bold(`${cmd} + enter`))} to ${desc}`)).join('\n'))
+    }
+
+    console.group(`${bold(val)}`, hints[val] ? gray(italic(hints[val])) : '')
+
+    if (!validVals.includes(val)) {
+        console.warn(`Invalid cmd: ${green(val)}`)
+        help()
+        console.groupEnd()
+        return
+    }
+
+    if (!validIdxs.includes(idx)) {
+        console.warn(`Invalid idx: ${yellow(String(idx))}`)
+        help()
+        console.groupEnd()
+        return
+    }
+
+    // console.log('value', { value, val, idx })
+    switch (val) {
+        case "x":
+            await shutdown()
+            break
+        case "r":
+            await instance?.reload()
+            break
+        case "o":
+            await instance?.apps.at(idx)?.open()
+            break
+        case "e":
+            await instance?.apps.at(idx)?.edit()
+            break
+        case "i":
+            console.log(gray(instance?.apps.map(app => ['endpoint: ' + green(app.endpoint), 'path: ' + cyan(app.path), 'state: ' + yellow(app.state)].join('\n')).join('\n-----------\n') || ''))
+            break
+        default:
+            help()
+            break
+    }
+
+    console.groupEnd()
+})
+
 switch (command) {
     case "clean":
         try {
@@ -153,17 +263,7 @@ switch (command) {
         break;
     case "start":
         try {
-            const instance = await start()
-
-            process.on('SIGINT', async () => {
-                try {
-                    await instance.shutdown()
-                } catch (e: any) {
-                    console.error(e)
-                }
-
-                process.exit()
-            })
+            instance = await start()
         } catch (e: any) {
             console.error(e)
         }

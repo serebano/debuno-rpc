@@ -15,7 +15,6 @@ export function start(rcFilePath?: string) {
                 console.log(`${colors.cyan(`[${app.config.server.$id}]`)}${colors.white(`[${app.config.server.base}]`)}`, colors.gray('(app)'), colors.green(app.state), app.config.server.endpoint)
             if (app.state === 'stopped')
                 console.log(`${colors.gray(`[${app.config.server.$id}]`)}${colors.white(`[${app.config.server.base}]`)}`, colors.gray('(app)'), colors.yellow(app.state))
-
             if (app.state === 'updated')
                 console.log(`${colors.yellow(`[${app.config.server.$id}]`)}${colors.white(`[${app.config.server.base}]`)}`, colors.gray('(app)'), colors.green(app.state), app.config.server.path)
 

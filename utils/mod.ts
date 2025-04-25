@@ -128,7 +128,7 @@ export function mapToSet(config: Record<string, string>): {
 }
 
 export function open(openUri: string): Promise<void> {
-    console.log(`open(${openUri})`)
+    console.debug(`open(${openUri})`)
 
     return new Promise<void>((resolve, reject) => {
         execFile('open', [openUri], (error, _stdout, _stderr) => {
@@ -286,7 +286,7 @@ export function removeInlineSourceMap(code: string): string {
 }
 
 export function moduleVersionTransform(source: string, file: string, http: string, app: App) {
-    console.log(`   * deps version sync`, http)
+    console.debug(`[utils][moduleVersionTransform]`, http)
     // console.log('moduleVersionTransform(', [file, http], ')')
 
     const parentUrl = new URL(http)

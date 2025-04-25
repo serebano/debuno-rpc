@@ -13,6 +13,7 @@ import type { FSWatcher } from "npm:chokidar";
 import { extendConsole } from "../utils/console.ts";
 import type { RPCServer } from "./serve.ts";
 import { readJSON } from "../utils/json.ts";
+import { open } from "../utils/mod.ts";
 
 
 
@@ -153,12 +154,16 @@ export function createApp(init: ConfigInit, opts?: AppOptions): App {
         get endpoint() {
             return app.config.server.endpoint
         },
+        get path() {
+            return app.config.server.path
+        },
         get state() {
             return state.value
         },
         get config() {
             return appConfig
         },
+        isRestarting: false
     } as App
 
     app.start = start
@@ -166,9 +171,29 @@ export function createApp(init: ConfigInit, opts?: AppOptions): App {
     app.restart = restart
     app.onError = onError
     app.update = update
-
     app.context = createContext(app, opts);
     app.router = createAppRouter(app);
+
+    app.open = (dev?: boolean) => open(`${app.config.protocol}${dev ? 'dev' : ''}://${app.config.server.host}${app.config.server.base}`)
+    app.edit = () => {
+        if (app.context.importMapFile)
+            return open(`vscode://file${app.context.importMapFile.replace('file://', '')}`)
+        const fileNames = ['index.html', 'index.tsx', 'index.ts', 'index.jsx', 'index.js', 'deno.json']
+        for (const fileName of fileNames) {
+            const file = app.context.files.find(file => file.path === fileName)
+            if (file) {
+                return open(`vscode://file${file.file.replace('file://', '')}`)
+            }
+        }
+
+        const file = app.context.files.at(0)
+        if (file) {
+            return open(`vscode://file${file.file.replace('file://', '')}`)
+        }
+
+        return open(`vscode://file${app.config.server.path.replace('file://', '')}`)
+    }
+
 
     const console = extendConsole('app').extend(app.config.$id)
 
@@ -234,7 +259,7 @@ export function createApp(init: ConfigInit, opts?: AppOptions): App {
     async function start(server?: RPCServer) {
         if (['started', 'updated'].includes(app.state))
             return app
-
+        app.isRestarting = false
         if (server)
             app.context.server = server
 
@@ -262,17 +287,24 @@ export function createApp(init: ConfigInit, opts?: AppOptions): App {
         if (app.state !== 'started' && app.state !== 'updated')
             return app
 
+        if (app.isRestarting) {
+            app.context.sse.emit('restart', 'app')
+        }
+
         await watchers.endpoints?.close()
         await watchers.files?.close()
         await state.set('stopped')
 
         await removeEndpoint(app.config) // (e) => app.context.sse.emit('endpoint', e)
-        app.context.sse.close()
+        // if (!app.isRestarting) {
+        await app.context.sse.close()
+        // }
 
         return app
     }
 
     async function restart() {
+        app.isRestarting = true
         await stop()
         await start()
 

@@ -18,7 +18,7 @@ export function createSSE(opts?: {
 
     const send = (data: any) => emit('message', data)
 
-    function emit(event: string, data: any) {
+    function emit(event: string, data?: any) {
         const id = eventId++
         if (typeof data === 'object')
             data.timestamp = Date.now()

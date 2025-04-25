@@ -139,7 +139,7 @@ export default createRoute((app) => {
                 );
 
                 if (hasChanged) {
-                    console.log(`hasChanged:`, hasChanged, [srcFilePath, outSrcFilePath || outFilePath]);
+                    console.debug(`hasChanged:`, hasChanged, [srcFilePath, outSrcFilePath || outFilePath]);
 
                     await transformFile(srcFilePath, outFilePath, {
                         format,

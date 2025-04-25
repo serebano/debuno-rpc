@@ -9,6 +9,7 @@ export interface App {
     readonly $id: string
     readonly state: AppState
     readonly endpoint: string
+    readonly path: string
     config: Config
     context: Context
     router: Router
@@ -17,4 +18,7 @@ export interface App {
     restart(): Promise<App>
     onError(error: any): Promise<void>
     update(init: ConfigInit): Promise<App>
+    open(dev?: boolean): Promise<void>
+    edit(): Promise<void>
+    isRestarting: boolean
 }

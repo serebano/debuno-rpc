@@ -13,7 +13,7 @@ export function editUsingExec(filePath: string, line?: number, column?: number):
     const openPath = [filePath, line, column].filter(Boolean).join(':')
     const openUri = `vscode://file${openPath}`
 
-    console.log(`editUsingExec(${openUri})`)
+    console.debug(`editUsingExec(${openUri})`)
 
     return new Promise<Response>((resolve, reject) => {
         execFile('open', [openUri], (error, _stdout, _stderr) => {

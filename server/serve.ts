@@ -40,8 +40,9 @@ export interface RPCServeOptions {
 }
 
 export interface RPCServeInstance {
-    configs: ConfigInit[]
-    options: RPCServeOptions
+    get configs(): ConfigInit[]
+    get options(): RPCServeOptions
+    get apps(): App[]
     servers: Map<string, RPCServer>
     watcher: FSWatcher | null
     shutdown: () => Promise<void>
@@ -75,6 +76,9 @@ export async function serve(
         },
         get options() {
             return options
+        },
+        get apps() {
+            return getApps()
         },
         servers: new Map<string, RPCServer>(),
         watcher: null,
@@ -280,6 +284,10 @@ export async function serve(
     }
 
     async function reload() {
+        for (const app of instance.apps) {
+            app.isRestarting = true
+            // app.context.sse.emit('restart', 'instance')
+        }
         await stopServers()
         createServers()
         await startServers()
@@ -343,6 +351,11 @@ function createServer(
             return server
         },
         async restart() {
+            for (const app of server.apps) {
+                app.isRestarting = true
+                // app.context.sse.emit('restart', 'server')
+            }
+
             await this.stop()
             await this.start()
 
