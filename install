@@ -1,6 +1,8 @@
 #!/bin/sh
 
 function install() {
+    deno run build;
+
     BASE=$(dirname $(realpath $0))
 
     EXE_LINK=$HOME/.deno/bin/rpc
@@ -12,11 +14,9 @@ function install() {
 
     ln -s $EXE_FILE $EXE_LINK;
 
-
-    rpc
-
-    echo "Installed at $EXE_LINK"
-    echo "From $(realpath $(which rpc))"
+    echo "Installed at: $EXE_LINK"
+    echo "Linked from: $EXE_FILE"
 }
 
 install;
+rpc;

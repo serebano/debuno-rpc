@@ -1,0 +1,25 @@
+{
+    "version": "0.0.2",
+    "rpc": {
+        "3030/": "./"
+    },
+    "tasks": {
+        "rpc": "rpc start"
+    },
+    "imports": {
+        "@debuno/rpc/client": "../../client.d.ts",
+        "@debuno/rpc": "../../index.ts"
+    },
+    "compilerOptions": {
+        "jsx": "react-jsx",
+        "jsxImportSource": "https://esm.sh/preact",
+        "types": [
+            "@debuno/rpc/client"
+        ],
+        "lib": [
+            "deno.window",
+            "dom"
+        ]
+    },
+    "lock": false
+}

@@ -11,10 +11,12 @@ import { rm } from "node:fs/promises";
 import { copyFolder } from "./utils/fs.ts";
 import { extendConsole } from "./utils/console.ts";
 import type { RPCServeInstance } from "./server/serve.ts";
-import { colors } from "jsr:@cliffy/ansi@1.0.0-rc.7/colors";
+import * as  colors from "./utils/colors.ts";
+import { cwd } from "node:process";
+import { atomicWriteJSON, readJSON } from "./utils/json.ts";
 
 const console = extendConsole('cli', { showNS: false, colors: { info: 'white', debug: 'white' } })
-console.clear()
+// console.clear()
 
 const BIN = Object.keys(pkg.bin)[0];
 const VERSION = pkg.version
@@ -27,7 +29,8 @@ const rcFileArgs = args._.length > 0
 const rcFileNames = rcFileArgs
     ? rcFileArgs.filter((arg: string) => arg.endsWith('.json') || arg.endsWith('.js') || arg.endsWith('.ts'))
     : undefined
-
+const rcDir = rcFileArgs?.length === 1 && rcFileNames?.length === 0 ? rcFileArgs.at(0) : undefined
+// console.log(`rcDir`, { rcFileArgs, rcFileNames, rcDir, cwd: cwd() })
 
 const options = {
     "--debug": {
@@ -67,6 +70,10 @@ const commands = {
             },
         },
     },
+    clean: {
+        description: "Clean the RPC cache",
+        options: {},
+    },
     help: {
         description: "Show help",
         options: {
@@ -75,11 +82,7 @@ const commands = {
                 description: "Path to the RPC config file",
             },
         },
-    },
-    clean: {
-        description: "Clean the RPC cache",
-        options: {},
-    },
+    }
 }
 
 
@@ -87,7 +90,7 @@ const CREATE_TEMPLATES = {
     "basic": {
         name: "basic",
         description: "Basic RPC App",
-        src: "/Users/serebano/dev/debuno-rpc-templates/basic"
+        src: path.join(import.meta.dirname!, "templates/basic")
     },
 }
 
@@ -111,7 +114,23 @@ async function create(rpcDir: string, opts?: { force: boolean }) {
     await copyFolder(CREATE_TEMPLATES.basic.src, resolvedRpcDir)
     await rm(path.join(resolvedRpcDir, '.rpc'), { recursive: true, force: true })
 
-    console.debug(`${CREATE_TEMPLATES.basic.description} created: ${resolvedRpcDir}`)
+    const denoConfigMod = {
+        "imports": {
+            "@debuno/rpc/client": path.resolve(import.meta.dirname!, 'client.d.ts'),
+            "@debuno/rpc": path.resolve(import.meta.dirname!, 'index.ts')
+        }
+    }
+    const denoConfigPath = path.join(resolvedRpcDir, 'deno.json')
+    const denoConfig = await readJSON(denoConfigPath)
+    await atomicWriteJSON(denoConfigPath, {
+        ...denoConfig,
+        imports: {
+            ...denoConfig.imports,
+            ...denoConfigMod.imports
+        }
+    })
+
+    console.debug(`${CREATE_TEMPLATES.basic.description} created: ${resolvedRpcDir} (${CREATE_TEMPLATES.basic.src})`)
 
     return resolvedRpcDir
 
@@ -240,7 +259,7 @@ function shortcutsListener() {
             console.log(Object.entries(hints).map(([cmd, desc]) => gray(`press ${colors.brightWhite(bold(`${cmd} + enter`))} to ${desc}`)).join('\n'))
         }
 
-        console.group((`$ [${hints[key]}] ${desc[key] ? gray((desc[key])) : ''}`))
+        console.group((`${colors.brightMagenta(`[${hints[key]}]`)} ${desc[key] ? gray((desc[key])) : ''}`))
 
         if (!valid.keys.includes(key)) {
             console.warn(italic(`Invalid shortcut key: ${brightRed(key)}`))
@@ -345,9 +364,8 @@ switch (command) {
             const relativeDir = path.relative(process.cwd(), rpcDir)
             console.group()
             console.log(`Created: ${rpcDir}`)
-            console.log(`Run: ${BIN} start ${relativeDir}`)
-            console.log(`   or`)
-            console.log(`Run: cd ${relativeDir} && ${BIN} start`)
+            console.log(`cd ${relativeDir}`)
+            console.log(`${BIN} start`)
             console.groupEnd()
         } catch (e: any) {
             console.error(e.message)
@@ -355,7 +373,7 @@ switch (command) {
         break;
     case "start":
         try {
-            instance = await start()
+            instance = await start(rcDir || rcFileNames?.at(0))
             shortcutsListener()
         } catch (e: any) {
             console.error(e)
@@ -363,10 +381,10 @@ switch (command) {
         break;
     case "config":
         try {
-            const rc = await loadRC(rcFileNames);
+            const rc = await loadRC(rcDir || rcFileNames);
             const map = rc.reduce((acc, { server }) => {
                 // acc[`${server.$addr}`] = server.endpoint
-                acc[`${server.endpoint}`] = path.resolve(server.path)
+                acc[`${server.endpoint}`] = server.path
                 return acc
             }, {} as Record<string, any>)
             console.log(map)
@@ -375,7 +393,7 @@ switch (command) {
         }
         break;
     default:
-        console.group(`${blue(pkg.displayName)} ${gray(VERSION)}`)
+        console.group(`${blue(pkg.displayName)} ${gray(VERSION)} ${gray(`(${import.meta.dirname})`)}`)
         console.log()
         console.log(gray('Usage:'), BIN, gray(`[command] [options] [RC_FILE_ARG]...`));
         console.log()
@@ -400,8 +418,10 @@ switch (command) {
         console.log()
         // examples
         console.group(yellow(`Examples:`));
-        console.log(`  ${BIN} start ./rpc.json`);
-        console.log(`  ${BIN} config ./rpc.json`);
+        console.log(`  ${BIN} start [rpc.json|deno.json]`);
+        console.log(`  ${BIN} config [rpc.json|deno.json]`);
+        console.log(`  ${BIN} create [dest]`);
+
         console.groupEnd()
 
         console.groupEnd()

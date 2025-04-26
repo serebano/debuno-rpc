@@ -78,7 +78,7 @@ function ensureTrailingSlash(path: string): string {
 }
 
 
-export function mapToSet(config: Record<string, string>): {
+export function mapToSet(config: Record<string, string>, filePath?: string): {
     readonly $id: string
     readonly $addr: string
     url: URL;

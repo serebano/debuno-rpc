@@ -32,13 +32,31 @@ export const RC_FILE_NAMES_PROP = {
 // await rm(RPC_DIR, { recursive: true, force: true })
 await mkdir(RPC_DIR, { recursive: true });
 
+const isFile = (arg: string) => arg.endsWith('.json') || arg.endsWith('.js') || arg.endsWith('.ts')
+
 export async function loadRC(fileNames?: string | string[]): Promise<ConfigInit[]> {
-    if (!Array.isArray(fileNames))
-        fileNames = fileNames ? [fileNames] : []
+    // if (!Array.isArray(fileNames))
+    //     fileNames = fileNames ? [fileNames] : []
+    let res: {
+        $file: string;
+        config: Record<string, string>;
+    }
 
-    const { config, $file } = await resolveRC(RC_FILE_NAMES.concat(fileNames));
+    if (typeof fileNames === 'string') {
+        if (isFile(fileNames)) {
+            res = await resolveRC([fileNames], process.cwd())
+        } else {
+            res = await resolveRC(RC_FILE_NAMES, path.resolve(fileNames))
+        }
+    } else if (Array.isArray(fileNames)) {
+        res = await resolveRC(fileNames, process.cwd())
+    } else {
+        res = await resolveRC(RC_FILE_NAMES, process.cwd())
+    }
 
-    return mapToSet(config)
+    const { config, $file } = res
+
+    return mapToSet(config, $file)
         .map(server => {
             const $id = [server.$id, server.base].join('')
             const $uid = [$id, server.path].join(',')
@@ -55,9 +73,8 @@ export async function loadRC(fileNames?: string | string[]): Promise<ConfigInit[
         })
 }
 
-export async function resolveRC(rcFileNames: string | string[]): Promise<{ $file: string, config: Record<string, string> }> {
+export async function resolveRC(rcFileNames: string | string[], cwd: string): Promise<{ $file: string, config: Record<string, string> }> {
     try {
-        const cwd = process.cwd()
 
         if (!Array.isArray(rcFileNames)) {
             rcFileNames = [rcFileNames]
@@ -71,6 +88,7 @@ export async function resolveRC(rcFileNames: string | string[]): Promise<{ $file
 
         for (const file of rcFileNames) {
             const $file = path.join(cwd, file)
+            const $path = path.dirname($file)
             console.debug(`try( ${file} )`)
             console.group()
 
@@ -88,7 +106,7 @@ export async function resolveRC(rcFileNames: string | string[]): Promise<{ $file
                         console.debug(`Loaded: ${$file}`, value)
                         console.groupEnd()
                         Object.keys(value).forEach(key => {
-                            value[key] = resolve(value[key])
+                            value[key] = resolve($path, value[key])
                         })
                         return { $file, config: value }
                     }
