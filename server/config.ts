@@ -87,7 +87,7 @@ export async function resolveRC(rcFileNames: string | string[], cwd: string): Pr
         // console.debug(`Files:`, rcFileNames)
 
         for (const file of rcFileNames) {
-            const $file = path.join(cwd, file)
+            const $file = path.resolve(cwd, file)
             const $path = path.dirname($file)
             console.debug(`try( ${file} )`)
             console.group()
