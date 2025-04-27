@@ -50,6 +50,10 @@ export interface Config {
     readonly genKey: string;
     readonly rpcDir: string;
     readonly genDir: string;
+    inspector(dev?: boolean): Promise<{
+        scheme: string;
+        url: string;
+    }>
     getEnv(url: string | URL | Location): ImportMetaEnv;
     filter: (file: string) => boolean;
 }

@@ -12,7 +12,6 @@ import { copyFolder } from "./utils/fs.ts";
 import { extendConsole } from "./utils/console.ts";
 import type { RPCServeInstance } from "./server/serve.ts";
 import * as  colors from "./utils/colors.ts";
-import { cwd } from "node:process";
 import { atomicWriteJSON, readJSON } from "./utils/json.ts";
 
 const console = extendConsole('cli', { showNS: false, colors: { info: 'white', debug: 'white' } })
@@ -41,7 +40,7 @@ const options = {
 }
 const inspectDev = args.idev || args["--idev"] || false
 // const argsRc = args.rc || args.r || args["--rc"] || false
-
+// console.log({ args })
 const commands = {
     start: {
         description: "Start the RPC server",
@@ -149,6 +148,11 @@ const shutdown = async () => {
 
 process.on('SIGINT', shutdown)
 
+
+type SIdxs = number[]
+type SKeys = "x" | "i" | "e" | "c" | "u" | "r" | "s" | "h" //keyof SMaps
+
+
 function shortcutsListener() {
     process.stdin.on('data', async data => {
         const value = data.toString('utf8', 0, 2).trim()
@@ -159,105 +163,7 @@ function shortcutsListener() {
         key = key || 'h'
         idx = Number(idx || 0)
 
-        type SMaps = typeof shortcuts
-
-        type SIdxs = number[]
-        type SKeys = keyof SMaps
-
-        type SHint = { [P in SKeys]: SMaps[P]['hint'] }
-        type SDesc = { [P in SKeys]: SMaps[P]['desc'] }
-        type SDefs = { [P in SKeys]: { hint: SMaps[P]['hint'], desc: SMaps[P]['desc'] } }
-
-
-        const valid = {
-            get keys(): SKeys {
-                return Object.keys(shortcuts) as any
-            },
-            get idxs(): SIdxs {
-                return instance?.apps.map((_, idx) => idx) || []
-            }
-        } as const
-
-        const shortcuts = {
-            get x() {
-                return {
-                    hint: `e${bold(brightWhite('x'))}it`,
-                    get desc() {
-                        return `Shutdown all ${yellow(valid.idxs.length.toString())} apps` as const
-                    }
-                } as const
-            },
-            get i() {
-                return {
-                    hint: `${bold(brightWhite('i'))}nspect`,
-                    get desc() {
-                        return `Inspect app#${yellow(idx.toString())} ${green(instance?.apps.at(idx)?.endpoint ?? '')}`
-                    }
-                } as const
-            },
-            get e() {
-                return {
-                    hint: `${bold(brightWhite('e'))}dit`,
-                    get desc() {
-                        return `Edit app#${yellow(idx.toString())} ${green(instance?.apps.at(idx)?.endpoint ?? '')} ${gray(instance?.apps.at(idx)?.path ?? '')}`
-                    }
-                } as const
-            },
-            get c() {
-                return {
-                    hint: `${bold(brightWhite('c'))}ode`,
-                    get desc() {
-                        return `Code app#${yellow(idx.toString())} ${green(instance?.apps.at(idx)?.endpoint ?? '')} ${gray(instance?.apps.at(idx)?.path ?? '')}`
-                    }
-                } as const
-            },
-            get u() {
-                return {
-                    hint: `${bold(brightWhite('u'))}ris`,
-                    desc: `Show available uris`
-                } as const
-            },
-            get r() {
-                const app = instance?.apps.at(idx)
-                const hasIdx = input.length === 2 && app
-
-                return {
-                    hint: `${bold(brightWhite('r'))}estart`,
-                    get desc() {
-                        return hasIdx
-                            ? `Restart app[${yellow(idx.toString())}] { ${colors.brightYellow(app.endpoint)}: ${colors.brightGreen(app.path)} }`
-                            : `Restart instance (servers & apps)`
-                    }
-                } as const
-            },
-            get s() {
-                const app = instance?.apps.at(idx)
-                const hasIdx = input.length === 2 && app
-
-                return {
-                    hint: `${bold(brightWhite('s'))}top`,
-                    get desc() {
-                        return hasIdx
-                            ? `Stop app[${yellow(idx.toString())}] { ${colors.brightYellow(app.endpoint)}: ${colors.brightGreen(app.path)} }`
-                            : `Stop instance (servers & apps)`
-                    }
-                } as const
-            },
-            get h() {
-                return {
-                    hint: `${bold(brightWhite('h'))}elp`,
-                    desc: `Usage info to help you quick start`
-                } as const
-            }
-        } as const
-
-
-        const desc = Object.fromEntries(Object.entries(shortcuts).map(([key, val]) => [key, val.desc])) as SDesc
-        const hints = Object.fromEntries(Object.entries(shortcuts).map(([key, val]) => [key, val.hint])) as SHint
-
-        function showHelp() {
-            console.log(Object.entries(hints).map(([cmd, desc]) => gray(`press ${colors.brightWhite(bold(`${cmd} + enter`))} to ${desc}`)).join('\n'))
-        }
+        const { desc, hints, showHelp, valid } = initCmds(input, key, idx)
 
         console.group((`${colors.brightMagenta(`[${hints[key]}]`)} ${desc[key] ? gray((desc[key])) : ''}`))
 
@@ -275,7 +181,122 @@ function shortcutsListener() {
             return
         }
 
-        let last$s = 'start' as 'start' | 'stop'
+        // let last$s = 'start' as 'start' | 'stop'
+        await runCmd(input, key, idx)
+
+        console.groupEnd()
+    })
+
+
+}
+
+function initCmds(input: [cmd?: string | undefined, idx?: number | undefined], key: SKeys, idx: number) {
+    type SMaps = typeof shortcuts
+    type SHint = { [P in SKeys]: SMaps[P]['hint'] }
+    type SDesc = { [P in SKeys]: SMaps[P]['desc'] }
+    type SDefs = { [P in SKeys]: { hint: SMaps[P]['hint'], desc: SMaps[P]['desc'] } }
+
+
+    const valid = {
+        get keys(): SKeys {
+            return Object.keys(shortcuts) as any
+        },
+        get idxs(): SIdxs {
+            return instance?.apps.map((_, idx) => idx) || []
+        }
+    } as const
+
+    const shortcuts = {
+        get x() {
+            return {
+                hint: `e${bold(brightWhite('x'))}it`,
+                get desc() {
+                    return `Shutdown all ${yellow(valid.idxs.length.toString())} apps` as const
+                }
+            } as const
+        },
+        get i() {
+            return {
+                hint: `${bold(brightWhite('i'))}nspect`,
+                get desc() {
+                    return `Inspect app#${yellow(idx.toString())} ${green(instance?.apps.at(idx)?.endpoint ?? '')}`
+                }
+            } as const
+        },
+        get e() {
+            return {
+                hint: `${bold(brightWhite('e'))}dit`,
+                get desc() {
+                    return `Edit app#${yellow(idx.toString())} ${green(instance?.apps.at(idx)?.endpoint ?? '')} ${gray(instance?.apps.at(idx)?.path ?? '')}`
+                }
+            } as const
+        },
+        get c() {
+            return {
+                hint: `${bold(brightWhite('c'))}ode`,
+                get desc() {
+                    return `Code app#${yellow(idx.toString())} ${green(instance?.apps.at(idx)?.endpoint ?? '')} ${gray(instance?.apps.at(idx)?.path ?? '')}`
+                }
+            } as const
+        },
+        get u() {
+            return {
+                hint: `${bold(brightWhite('u'))}ris`,
+                desc: `Show available uris`
+            } as const
+        },
+        get r() {
+            const app = instance?.apps.at(idx)
+            const hasIdx = input.length === 2 && app
+
+            return {
+                hint: `${bold(brightWhite('r'))}estart`,
+                get desc() {
+                    return hasIdx
+                        ? `Restart app[${yellow(idx.toString())}] { ${colors.brightYellow(app.endpoint)}: ${colors.brightGreen(app.path)} }`
+                        : `Restart instance (servers & apps)`
+                }
+            } as const
+        },
+        get s() {
+            const app = instance?.apps.at(idx)
+            const hasIdx = input.length === 2 && app
+
+            return {
+                hint: `${bold(brightWhite('s'))}top`,
+                get desc() {
+                    return hasIdx
+                        ? `Stop app[${yellow(idx.toString())}] { ${colors.brightYellow(app.endpoint)}: ${colors.brightGreen(app.path)} }`
+                        : `Stop instance (servers & apps)`
+                }
+            } as const
+        },
+        get h() {
+            return {
+                hint: `${bold(brightWhite('h'))}elp`,
+                desc: `Usage info to help you quick start`
+            } as const
+        }
+    } as const
+
+
+
+    const desc = Object.fromEntries(Object.entries(shortcuts).map(([key, val]) => [key, val.desc])) as SDesc
+    const hints = Object.fromEntries(Object.entries(shortcuts).map(([key, val]) => [key, val.hint])) as SHint
+
+    function showHelp() {
+        console.log(Object.entries(hints).map(([cmd, desc]) => gray(`press ${colors.brightWhite(bold(`${cmd} + enter`))} to ${desc}`)).join('\n'))
+    }
+
+    return { valid, shortcuts, desc, hints, showHelp }
+}
+
+async function runCmd(input: [cmd?: string | undefined, idx?: number | undefined], key: SKeys, idx: number, log?: boolean) {
+    const { showHelp, hints, desc } = initCmds(input, key, idx)
+    if (log)
+        console.group((`${colors.brightMagenta(`[${hints[key]}]`)} ${desc[key] ? gray((desc[key])) : ''}`))
+
+    async function _run() {
         switch (key) {
             case "x":
                 // await shutdown()
@@ -288,11 +309,11 @@ function shortcutsListener() {
                     await instance?.apps.at(idx)?.restart()
                 break
             case "s": {
-                last$s = last$s === 'start' ? 'stop' : 'start'
                 if (input.length === 1)
-                    if (last$s === 'start')
+                    if (instance)
                         await instance?.shutdown()
-                    else (instance = await start())
+                    else
+                        (instance = await start(rcDir || rcFileNames?.at(0)))
                 else
                     if (instance?.apps.at(idx)?.state === 'started')
                         await instance?.apps.at(idx)?.stop()
@@ -329,12 +350,14 @@ function shortcutsListener() {
                 showHelp()
                 break
         }
+    }
 
+    await _run()
+
+    if (log)
         console.groupEnd()
-    })
-
-
 }
+
 switch (command) {
     case "clean":
         try {
@@ -367,6 +390,22 @@ switch (command) {
             console.log(`cd ${relativeDir}`)
             console.log(`${BIN} start`)
             console.groupEnd()
+
+            if (args.s) {
+                try {
+                    instance = await start(destDir)
+                    shortcutsListener()
+                    if (args.i) {
+                        await runCmd(['i'], 'i', 0, true)
+                    }
+                    if (args.c) {
+                        await runCmd(['c'], 'c', 0, true)
+                    }
+                } catch (e: any) {
+                    console.error(e)
+                }
+            }
+
         } catch (e: any) {
             console.error(e.message)
         }

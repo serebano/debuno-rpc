@@ -5,6 +5,12 @@ import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import type { App } from "../types/app.ts";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+
+export function getInspectorUrl() {
+    return readFile(path.join(process.env['HOME']!, '.rpc', 'inspector.txt'), 'utf8')
+}
 
 export const fileExists = async (path: string) => {
     try {

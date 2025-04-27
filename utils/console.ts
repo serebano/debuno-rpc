@@ -178,7 +178,7 @@ export function createConsole(
         if (opts.showNS && args.length) args.unshift(gray(`[${namespace}]`))
         if (opts.showLevel && args.length) args.unshift(gray(`[${level}]`))
 
-        $console[level].call($console, ...args.map(levelColors.debug));
+        $console[level].call($console, ...args.map(levelColors[level]));
     }
 
     return {

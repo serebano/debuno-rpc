@@ -1,6 +1,6 @@
 // deno-lint-ignore-file no-process-global
 import { mkdir } from "node:fs/promises";
-import { fileExists, formatBase, getDenoConfig, groupByDeep, mapToSet, resolvePath } from "../utils/mod.ts";
+import { fileExists, formatBase, getDenoConfig, getInspectorUrl, groupByDeep, mapToSet, resolvePath } from "../utils/mod.ts";
 import type { ConfigInit, Config, ConfigInitMap } from "../types/config.ts";
 import path, { join, resolve } from "node:path";
 import { extendConsole } from "../utils/console.ts";
@@ -228,6 +228,18 @@ export function defineConfig(init: ConfigInit): Config {
         },
         get protocol() {
             return `web+rpc`
+        },
+        async inspector(dev?: boolean) {
+            return {
+                scheme: (dev
+                    ? config.protocol + 'dev'
+                    : config.protocol
+                ) + '://',
+                url: (dev
+                    ? await getInspectorUrl()
+                    : `https://rpc.debuno.dev`
+                ) + '#'
+            }
         },
         get rpcDir() {
             return join(this.server.path, '.rpc')

@@ -7,16 +7,14 @@ import type { ConfigInit } from "../types/config.ts";
 import { defineConfig, parseRC } from "./config.ts";
 import type { Context } from "../types/context.ts";
 import { createEnv } from "./env.ts";
-// import * as colors from "../utils/colors.ts";
 import type { App, AppState } from "../types/app.ts";
 import type { FSWatcher } from "npm:chokidar";
 import { extendConsole } from "../utils/console.ts";
 import type { RPCServer } from "./serve.ts";
 import { readJSON } from "../utils/json.ts";
-import { open } from "../utils/mod.ts";
+import { getInspectorUrl, open } from "../utils/mod.ts";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-
 
 
 export function createAppFrom(endpoint: string, path: string): App {
@@ -177,8 +175,26 @@ export function createApp(init: ConfigInit, opts?: AppOptions): App {
     app.router = createAppRouter(app);
 
 
-    app.inspect = (dev?: boolean) => open(`${app.config.protocol}${dev ? 'dev' : ''}://${app.config.server.host}${app.config.server.base}`)
     app.exec = (file: string, args?: []) => promisify(execFile)(file, args) // (file: string, args?: []) => execFile(file, args)
+    app.inspect = async (dev?: boolean) => {
+        const inspectorConfig = await app.config.inspector(dev)
+        const inspectorUris = [
+            [inspectorConfig.scheme, app.config.server.host, app.config.server.base].join(''),
+            [inspectorConfig.url, app.config.server.host, app.config.server.base].join('')
+        ]
+
+        for (const uri of inspectorUris) {
+            try {
+                await open(uri)
+                console.info(`open(${uri}) => Done`)
+                break;
+            } catch (e: any) {
+                const message = `No application knows how to open URL`
+                console.warn(`open(${uri}) => Failed:`, e.message.includes(message) ? message : e.message)
+            }
+        }
+    }
+
     app.edit = () => {
         if (app.context.importMapFile)
             return open(`vscode://file${app.context.importMapFile.replace('file://', '')}`)
