@@ -8,7 +8,6 @@ import { createRoute } from "../../utils/router.ts";
 import { RPC_PRO_DIR } from "../config.ts";
 import { getLangFromExt, moduleHtmlTransform, moduleVersionTransform, removeInlineSourceMap } from "../../utils/mod.ts";
 import { readFile } from "node:fs/promises";
-import path from "node:path";
 import meta from "../meta/mod.ts";
 
 export interface RpcHandlerInit {
@@ -217,7 +216,7 @@ export default createRoute((app) => {
                         const data = {
                             lang,
                             http: fileUrl,
-                            file: paths.original,
+                            file: 'file://' + paths.original,
                             base: app.config.server.base,
                             path: u.pathname.slice(app.config.server.base.length),
                             endpoint: app.config.server.endpoint,

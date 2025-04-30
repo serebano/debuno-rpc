@@ -6,6 +6,7 @@ import chokidar, { type FSWatcher } from "npm:chokidar"
 import type { Config } from "../../types/config.ts";
 import { atomicWriteJSON, readJSON } from "../../utils/json.ts";
 import { extendConsole } from "../../utils/console.ts";
+import type { App } from "../../types/app.ts";
 
 const console = extendConsole('endpoints')
 
@@ -17,12 +18,14 @@ const MAX_FAILED = 1
 const oid = (o: any) => md5([o.endpoint, o.file].join('|'))
 
 
-export function watchEndpointsConfig(target: SSE | SSETarget): FSWatcher {
+export function watchEndpointsConfig(app: App): FSWatcher {
+    const target = app.context.sse
     console.debug(`[watch]`, ENDPOINTS_CONFIG_PATH)
     let __endpoints__ = [] as Endpoint[] //await readEndpoints()
 
     async function emitEvent(target: SSE | SSETarget) {
         const newOrigins = (await readEndpoints())
+        app.context.endpoints = newOrigins.map(o => o.endpoint)
 
         const newIds = newOrigins.map(o => o.$oid)
         const oldIds = __endpoints__.map(o => o.$oid)
@@ -32,26 +35,21 @@ export function watchEndpointsConfig(target: SSE | SSETarget): FSWatcher {
         console.debug(`[emitEvent]`, changes)
 
         if (changes.added.length) {
-            for (const $oid of changes.added) {
-                target.emit('endpoint', {
-                    kind: 'added',
-                    ...newOrigins.find(o => o.$oid === $oid)
-                })
-            }
+            target.emit('endpoints', changes.added.map($oid => newOrigins.find(o => o.$oid === $oid)?.endpoint).filter(Boolean))
         }
 
-        if (changes.removed.length) {
-            for (const $oid of changes.removed) {
-                target.emit('endpoint', {
-                    kind: 'removed',
-                    ...__endpoints__.find(o => o.$oid === $oid)
-                })
-            }
-        }
+        // if (changes.removed.length) {
+        //     for (const $oid of changes.removed) {
+        //         target.emit('endpoint', {
+        //             kind: 'removed',
+        //             ...__endpoints__.find(o => o.$oid === $oid)
+        //         })
+        //     }
+        // }
 
-        if (changes.added.length || changes.removed.length) {
-            target.emit('endpoints', newOrigins)
-        }
+        // if (changes.added.length || changes.removed.length) {
+        //     target.emit('endpoints', newOrigins)
+        // }
 
         __endpoints__ = newOrigins
     }
@@ -59,7 +57,7 @@ export function watchEndpointsConfig(target: SSE | SSETarget): FSWatcher {
     const watcher = chokidar.watch(ENDPOINTS_CONFIG_PATH, {
         persistent: true,
         ignoreInitial: true,
-        awaitWriteFinish: true
+        // awaitWriteFinish: true
     });
 
     return watcher

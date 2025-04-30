@@ -146,7 +146,7 @@ export function parseRC(input: ParseRCInput, group: boolean = false): any {
             const $id = [server.$id, server.base].join('')
             const $uid = [$id, server.path].join(',')
             const $file = undefined
-
+            server.path = resolve(server.path)
             return {
                 $id,
                 $uid,

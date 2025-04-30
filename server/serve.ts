@@ -75,7 +75,7 @@ export async function serve(
             return configs
         },
         get options() {
-            return options
+            return options || {}
         },
         get apps() {
             return getApps()

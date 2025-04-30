@@ -57,6 +57,36 @@ export function createAppRouter(app: App): Router {
             (_req, url) => Response.redirect(`${url.origin}${app.config.server.base}`),
             appId
         ),
+        /** ?remotes - Returns remotes info */
+        route(
+            (_, url) => url.searchParams.has('remotes'),
+            () => new Response(JSON.stringify(app.context.remotes, null, 4), {
+                headers: {
+                    'content-type': 'application/json'
+                }
+            }),
+            appId
+        ),
+        /** ?change - Get meta */
+        route(
+            (req, url) => url.searchParams.has('change'),
+            (_req, url) => {
+                const metaUrl = url.searchParams.get('change')!
+                meta.incVersion(metaUrl);
+                const change = meta.getDependents(metaUrl, true)
+                app.context.sse.emit('change', change)
+                return new Response(JSON.stringify({
+                    metaUrl,
+                    meta: meta.get(metaUrl),
+                    change
+                }, null, 4), {
+                    headers: {
+                        'content-type': "application/json"
+                    }
+                })
+            },
+            appId
+        ),
         /** 
          * Opens url in rpc.dash app 
          * @query ?dash
@@ -252,6 +282,7 @@ export function createAppRouter(app: App): Router {
                     endpoint: app.config.server.endpoint
                 }),
                 origins: await readEndpoints(),
+                endpoints: app.context.endpoints,
                 meta: meta
             }, null, 4), {
                 headers: {
@@ -291,6 +322,7 @@ export function createAppRouter(app: App): Router {
                 response.headers.set('X-Base', app.config.server.base)
                 response.headers.set('X-Base-Url', `${url.origin}${app.config.server.base}`)
                 response.headers.set('X-Filename', url.href.replace(`${url.origin}${app.config.server.base}`, ''))
+                response.headers.set('X-Version', String(meta.get(url.href).version || 0))
 
                 response.headers.set('Access-Control-Allow-Origin', '*')
                 response.headers.set('Access-Control-Allow-Headers', '*')

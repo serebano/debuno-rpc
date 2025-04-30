@@ -1,5 +1,5 @@
 #!/bin/sh
 _BASE=$(dirname $(realpath $0))
 _EXE_FILE="$_BASE/cli.ts"
-#--no-config
-deno run -A "$_EXE_FILE" "$@"
+ 
+deno run -A --no-config --watch "$_EXE_FILE" "$@"

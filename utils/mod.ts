@@ -298,7 +298,9 @@ export function moduleVersionTransform(source: string, file: string, http: strin
     const parentUrl = new URL(http)
     const parentId = parentUrl.origin + parentUrl.pathname
 
-    return replaceImportAndExportPaths(source, (importPath) => {
+    const foundRemoteImports = new Set<string>()
+
+    const result = replaceImportAndExportPaths(source, (importPath) => {
         if (
             importPath.endsWith('.ts') ||
             importPath.endsWith('.tsx') ||
@@ -307,6 +309,14 @@ export function moduleVersionTransform(source: string, file: string, http: strin
             importPath.endsWith('.json') ||
             importPath.endsWith('.html')
         ) {
+
+            const importEndpoint = app.context.endpoints.find(e => importPath.startsWith(e))
+            if (importEndpoint) {
+                const importUrl = new URL(importPath)
+                const importId = importUrl.origin + importUrl.pathname
+                app.context.watchRemoteImport(importEndpoint, importId, parentId)
+                foundRemoteImports.add(importId)
+            }
 
             const depUrl = resolveImportMap(app.context.importMap, importPath, parentId) ?? new URL(importPath, parentId)
 
@@ -328,6 +338,29 @@ export function moduleVersionTransform(source: string, file: string, http: strin
 
         return importPath
     })
+
+    const remotes = app.context.remotes
+    const remoteImports = remotes.importers.get(parentId)
+    if (remoteImports) {
+        for (const remoteImport of remoteImports) {
+            if (!foundRemoteImports.has(remoteImport)) {
+                remoteImports.delete(remoteImport)
+                const remoteImporters = remotes.imports.get(remoteImport)
+                if (remoteImporters) {
+                    remoteImporters.delete(parentId)
+                    if (remoteImporters.size === 0) {
+                        remotes.imports.delete(remoteImport)
+                        remotes.unwatchImport(remoteImport)
+                    }
+                }
+                if (remoteImports.size === 0) {
+                    remotes.importers.delete(parentId)
+                }
+            }
+        }
+    }
+
+    return result
 }
 
 export function moduleHtmlTransform(source: string, file: string, http: string, req: Request) {

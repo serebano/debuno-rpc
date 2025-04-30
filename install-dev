@@ -7,8 +7,8 @@ function link() {
 
     BASE=$(dirname $(realpath $0))
 
-    EXE_LINK=$HOME/.deno/bin/rpc
-    EXE_FILE=$BASE/rpc
+    EXE_LINK=$HOME/.deno/bin/rpcdev
+    EXE_FILE=$BASE/rpcdev
 
     chmod +x $EXE_FILE
 
@@ -22,4 +22,4 @@ function link() {
 
 build;
 link;
-rpc;
+rpcdev;

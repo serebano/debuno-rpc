@@ -1,6 +1,7 @@
+// deno-lint-ignore-file
 import { createAppRouter } from "./appRouter.ts";
 import { getFiles, watchFiles } from "./sse/files.ts";
-import { addEndpoint, watchEndpointsConfig, removeEndpoint } from "./sse/endpoints.ts";
+import { addEndpoint, watchEndpointsConfig, removeEndpoint, getEndpoints, readEndpoints } from "./sse/endpoints.ts";
 import { createSSE } from "./sse/create.ts";
 import meta from "./meta/mod.ts";
 import type { ConfigInit } from "../types/config.ts";
@@ -15,6 +16,7 @@ import { readJSON } from "../utils/json.ts";
 import { getInspectorUrl, open } from "../utils/mod.ts";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import type { FileEvent } from "../types/file.ts";
 
 
 export function createAppFrom(endpoint: string, path: string): App {
@@ -48,12 +50,62 @@ class State<T> {
     }
 }
 
+const remoteImportsWatchers = new Map<string, EventSource>()
+const remoteEndpointsMap = new Map<string, Set<string>>()
+const remoteImportersMap = new Map<string, Set<string>>()
+const remoteImportsMap = new Map<string, Set<string>>()
+const remoteImportToEndpointMap = new Map<string, string>()
+
+function unwatchRemoteImport(remoteImport: string) {
+    const endpoint = remoteImportToEndpointMap.get(remoteImport)
+    if (endpoint) {
+        const remoteEndpointImports = remoteEndpointsMap.get(endpoint)
+        if (remoteEndpointImports) {
+            remoteEndpointImports.delete(remoteImport)
+            if (remoteEndpointImports.size === 0) {
+                remoteEndpointsMap.delete(endpoint)
+                remoteImportToEndpointMap.delete(remoteImport)
+                remoteImportsWatchers.get(endpoint)?.close()
+                remoteImportsWatchers.delete(endpoint)
+            }
+        }
+    }
+}
+
 function createContext(app: App, opts?: AppOptions): Context {
     let files: any
     let importMap: any
     let importMapFile: any
 
     const context: Context = {
+        get remotes() {
+            return {
+                watchers: remoteImportsWatchers,
+                endpoints: remoteEndpointsMap,
+                importers: remoteImportersMap,
+                imports: remoteImportsMap,
+                unwatchImport: unwatchRemoteImport,
+                toJSON() {
+                    const state = context.remotes;
+                    const watchers: Record<string, number> = {};
+                    for (const [, es] of state.watchers) {
+                        watchers[es.url] = es.readyState;
+                    }
+                    return {
+                        watchers, // Can't serialize EventSource directly
+                        endpoints: Object.fromEntries(
+                            Array.from(state.endpoints.entries()).map(([k, v]) => [k, Array.from(v)])
+                        ),
+                        importers: Object.fromEntries(
+                            Array.from(state.importers.entries()).map(([k, v]) => [k, Array.from(v)])
+                        ),
+                        imports: Object.fromEntries(
+                            Array.from(state.imports.entries()).map(([k, v]) => [k, Array.from(v)])
+                        )
+                    }
+                }
+            }
+        },
         get apps() {
             return opts?.getApps?.(app) ?? []
         },
@@ -95,6 +147,46 @@ function createContext(app: App, opts?: AppOptions): Context {
         get importMapFile() {
             return importMapFile
         },
+        watchRemoteImport(endpoint, importUrl, importerUrl) {
+            if (!remoteImportsWatchers.has(endpoint)) {
+                const es = new EventSource(endpoint)
+                es.addEventListener('file', e => {
+                    const data = JSON.parse(e.data) as FileEvent
+                    const url = data.http
+                    if (remoteImportsMap.has(url)) {
+                        if (data.type === 'changed') {
+                            meta.incVersion(url);
+                            context.sse.emit('change', meta.getDependents(url, true))
+                        }
+                        if (data.type === 'removed') {
+                            meta.rm(url)
+                        }
+                    }
+                })
+                remoteImportsWatchers.set(endpoint, es)
+            }
+
+            remoteImportToEndpointMap.set(importUrl, endpoint)
+
+            if (!remoteEndpointsMap.has(endpoint)) {
+                remoteEndpointsMap.set(endpoint, new Set())
+            }
+
+            if (!remoteImportersMap.has(importerUrl)) {
+                remoteImportersMap.set(importerUrl, new Set())
+            }
+
+            if (!remoteImportsMap.has(importUrl)) {
+                remoteImportsMap.set(importUrl, new Set())
+            }
+
+            remoteEndpointsMap.get(endpoint)?.add(importUrl)
+            remoteImportersMap.get(importerUrl)?.add(importUrl)
+            remoteImportsMap.get(importUrl)?.add(importerUrl)
+
+            console.debug(`[watchRemoteImport]`, { endpoint, importUrl, importerUrl })
+        },
+        endpoints: [],
         start: app.start,
         stop: app.stop,
         restart: app.restart,
@@ -244,6 +336,11 @@ export function createApp(init: ConfigInit, opts?: AppOptions): App {
         return app
     }
 
+    async function startEndpointsWatcher() {
+        await watchers.endpoints?.close()
+        watchers.endpoints = watchEndpointsConfig(app)
+    }
+
     async function startFilesWatcher() {
         await watchers.files?.close()
         watchers.files = watchFiles({
@@ -254,8 +351,9 @@ export function createApp(init: ConfigInit, opts?: AppOptions): App {
             endpoint: app.config.server.endpoint,
             target: app.context.sse
         }, (target, event) => {
+            const url = event.http;
+
             if (event.type === 'changed') {
-                const url = event.http;
 
                 meta.incVersion(url);
                 Object.assign(event, meta.get(url));
@@ -268,7 +366,24 @@ export function createApp(init: ConfigInit, opts?: AppOptions): App {
             }
 
             if (event.type === 'removed') {
-                meta.rm(event.http)
+                meta.rm(url)
+
+
+
+                const remoteImports = remoteImportersMap.get(url)
+                if (remoteImports) {
+                    for (const remoteImport of remoteImports) {
+                        const remoteImporters = remoteImportsMap.get(remoteImport)
+                        if (remoteImporters) {
+                            remoteImporters.delete(url)
+                            if (remoteImporters.size === 0) {
+                                remoteImportsMap.delete(remoteImport)
+                                unwatchRemoteImport(remoteImport)
+                            }
+                        }
+                    }
+                }
+                remoteImportersMap.delete(url)
             }
 
             target.emit('file', event);
@@ -287,6 +402,8 @@ export function createApp(init: ConfigInit, opts?: AppOptions): App {
         await app.context.getFiles(true)
         await app.context.getImportMap(true)
         await startFilesWatcher()
+        await startEndpointsWatcher()
+        app.context.endpoints = (await readEndpoints()).map(e => e.endpoint)
 
         await state.set('started')
 

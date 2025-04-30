@@ -7,6 +7,7 @@ export class HMRContext implements HotContext {
     constructor(
         private hmrClient: HMRClient,
         private ownerPath: string,
+        public connect: (url: string) => EventSource
     ) {
         const url = new URL(ownerPath, String(location))
         url.searchParams.delete('version')

@@ -38,7 +38,7 @@ const options = {
         default: false,
     },
 }
-const inspectDev = args.idev || args["--idev"] || false
+let inspectDev = args.idev || args["--idev"] || false
 // const argsRc = args.rc || args.r || args["--rc"] || false
 // console.log({ args })
 const commands = {
@@ -156,6 +156,16 @@ type SKeys = "x" | "i" | "e" | "c" | "u" | "r" | "s" | "h" //keyof SMaps
 function shortcutsListener() {
     process.stdin.on('data', async data => {
         const value = data.toString('utf8', 0, 2).trim()
+        if (value === 'id') {
+            if (inspectDev === false) {
+                inspectDev = true
+                console.log(`Enabled inspector dev`)
+            } else {
+                inspectDev = false
+                console.log(`Disabled inspector dev`)
+            }
+            return
+        }
         const input = value.split('') as unknown as [cmd?: string, idx?: number]
 
         let [key, idx] = input as [key?: SKeys, idx?: number]
