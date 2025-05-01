@@ -1,7 +1,7 @@
 {
     "name": "@debuno/rpc",
     "displayName": "DebunoRPC",
-    "version": "0.1.3",
+    "version": "0.1.5",
     "description": "Debuno RPC",
     "keywords": [
         "debuno",
@@ -23,7 +23,7 @@
         "prepublishOnly": "deno run build"
     },
     "bin": {
-        "rpc": "./cli.ts"
+        "rpc": "./dist/cli/cli.js"
     },
     "exports": {
         ".": {
@@ -44,7 +44,8 @@
     },
     "dependencies": {
         "oxc-transform": "^0.67.0",
-        "oxc-parser": "^0.67.0"
+        "oxc-parser": "^0.67.0",
+        "chokidar": "^4.0.3"
     },
     "publishConfig": {
         "access": "public"

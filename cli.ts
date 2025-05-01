@@ -1,4 +1,4 @@
-#!/usr/bin/env deno -A
+#!/usr/bin/env deno -A -c deno.json
 import { parseArgs } from "jsr:@std/cli/parse-args";
 import { start } from "./server/start.ts";
 import process from "node:process";
@@ -84,22 +84,25 @@ const commands = {
     }
 }
 
+const RPC_MOD_DIR = import.meta.url.endsWith('.js')
+    ? path.resolve(import.meta.dirname!, "../../")
+    : import.meta.dirname!
 
 const CREATE_TEMPLATES = {
     "basic": {
         name: "basic",
         description: "Basic RPC App",
-        src: path.join(import.meta.dirname!, "templates/basic")
+        src: path.join(RPC_MOD_DIR, "templates/basic")
     },
 }
 
-async function create(rpcDir: string, opts?: { force: boolean }) {
-    console.debug(`create ${rpcDir}`)
-    if (!rpcDir)
+async function create(endpoint: string, dirname: string, opts?: { force: boolean }) {
+    console.debug(`creating: ${endpoint} => ${dirname}`)
+    if (!dirname)
         throw new Error("Path is required")
 
     const force = opts?.force || false
-    const resolvedRpcDir = path.resolve(rpcDir)
+    const resolvedRpcDir = path.resolve(dirname)
 
     const pathExists = await fileExists(resolvedRpcDir)
     if (pathExists) {
@@ -114,15 +117,17 @@ async function create(rpcDir: string, opts?: { force: boolean }) {
     await rm(path.join(resolvedRpcDir, '.rpc'), { recursive: true, force: true })
 
     const denoConfigMod = {
+        "rpc": { [endpoint]: "." },
         "imports": {
-            "@debuno/rpc/client": path.resolve(import.meta.dirname!, 'client.d.ts'),
-            "@debuno/rpc": path.resolve(import.meta.dirname!, 'index.ts')
+            "@debuno/rpc/client": path.resolve(RPC_MOD_DIR, 'client.d.ts'),
+            "@debuno/rpc": path.resolve(RPC_MOD_DIR, 'index.ts')
         }
     }
     const denoConfigPath = path.join(resolvedRpcDir, 'deno.json')
     const denoConfig = await readJSON(denoConfigPath)
     await atomicWriteJSON(denoConfigPath, {
         ...denoConfig,
+        rpc: denoConfigMod.rpc,
         imports: {
             ...denoConfig.imports,
             ...denoConfigMod.imports
@@ -389,21 +394,24 @@ switch (command) {
         break;
     case "create":
         try {
-            const destDir = args._[0] as string
+            const endpoint = String(args._[0]) as string
+            const dirname = String(args._[1]) as string
+
             const opts = {
                 force: args.force || args.f || false
             }
-            const rpcDir = await create(destDir, opts)
+            const rpcDir = await create(endpoint, dirname, opts)
             const relativeDir = path.relative(process.cwd(), rpcDir)
             console.group()
-            console.log(`Created: ${rpcDir}`)
-            console.log(`cd ${relativeDir}`)
-            console.log(`${BIN} start`)
+            console.log()
+            console.log(`${colors.brightCyan(endpoint)} => ${brightWhite(dirname)}`)
+            console.log(`${BIN} start ${relativeDir}`)
+            console.log()
             console.groupEnd()
 
             if (args.s) {
                 try {
-                    instance = await start(destDir)
+                    instance = await start(dirname)
                     shortcutsListener()
                     if (args.i) {
                         await runCmd(['i'], 'i', 0, true)
@@ -417,7 +425,7 @@ switch (command) {
             }
 
         } catch (e: any) {
-            console.error(e.message)
+            console.error(e)
         }
         break;
     case "start":
@@ -442,7 +450,7 @@ switch (command) {
         }
         break;
     default:
-        console.group(`${blue(pkg.displayName)} ${gray(VERSION)} ${gray(`(${import.meta.dirname})`)}`)
+        console.group(`${blue(pkg.displayName)}/${gray(VERSION)} ${navigator.userAgent} ${gray(`(${RPC_MOD_DIR})`)}`)
         console.log()
         console.log(gray('Usage:'), BIN, gray(`[command] [options] [RC_FILE_ARG]...`));
         console.log()
@@ -467,9 +475,9 @@ switch (command) {
         console.log()
         // examples
         console.group(yellow(`Examples:`));
-        console.log(`  ${BIN} start [rpc.json|deno.json]`);
-        console.log(`  ${BIN} config [rpc.json|deno.json]`);
-        console.log(`  ${BIN} create [dest]`);
+        console.log(`  ${BIN} start [rpc.json|deno.json|dirname]`);
+        console.log(`  ${BIN} config [rpc.json|deno.json|dirname]`);
+        console.log(`  ${BIN} create [endpoint] [dirname]`);
 
         console.groupEnd()
 

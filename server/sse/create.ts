@@ -4,6 +4,12 @@ import {
 } from "https://deno.land/std@0.204.0/http/server_sent_event.ts";
 import type { SSE, SSETarget } from "./types.ts";
 
+if (typeof ErrorEvent === 'undefined') {
+    Object.defineProperty(globalThis, 'ErrorEvent', {
+        value: class ErrorEvent extends Event { }
+    })
+}
+
 const console = globalThis.console.extend('sse')
 
 export function createSSE(opts?: {

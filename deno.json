@@ -1,15 +1,16 @@
 {
     "name": "@debuno/rpc",
-    "version": "0.1.2",
+    "version": "0.1.5",
     "exports": {
-        ".": "./mod.ts",
-        "./server/*": "./server/",
+        ".": "./index.ts",
+        "./client": "./client.d.ts",
         "./client/*": "./client/"
     },
     "tasks": {
         "build:server": "deno run -A scripts/build.server.ts",
         "build:client": "deno run -A scripts/build.client.ts",
-        "build": "deno run build:server && deno run build:client"
+        "build:cli": "deno run -A scripts/build.cli.ts",
+        "build": "deno run build:server && deno run build:client && deno run build:cli"
     },
     "imports": {
         "@debuno/serve": "../debuno-serve/mod.ts",
