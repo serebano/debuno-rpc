@@ -1,5 +1,6 @@
-import { parseSync, type OxcError } from 'npm:oxc-parser@0.51.0';
-import type * as oxc from 'npm:@oxc-project/types@0.51.0';
+import { parseSync, type OxcError } from 'oxc-parser';
+import MagicStringBase from 'magic-string'
+import type * as oxc from '@oxc-project/types';
 
 type Id = oxc.BindingIdentifier | oxc.BindingPattern | oxc.PropertyKey | { index: number } | null
 
@@ -12,6 +13,12 @@ export interface RPCTransformInit {
     envImportUrl?: string
     jsxImportSource?: string
     env?: Record<string, any>
+}
+
+class MagicString extends MagicStringBase {
+    getSourceText(start: number, end: number): string {
+        return this.slice(start, end)
+    }
 }
 
 export async function transform(fileName: string, code: string, init?: RPCTransformInit): Promise<{
@@ -46,7 +53,8 @@ export async function transform(fileName: string, code: string, init?: RPCTransf
         code = transformed.code
     }
 
-    const { errors, program, magicString } = parseSync(fileName, code);
+    const { errors, program } = parseSync(fileName, code);
+    const magicString = new MagicString(code)
 
     function createCallExpression(
         path: Id[],
@@ -54,17 +62,19 @@ export async function transform(fileName: string, code: string, init?: RPCTransf
     ): string {
         // @ts-ignore ???
         const name = path.filter(Boolean).map(p => p.name || p.index).join('.')
-        const args = params.map(p => {
-            if (p.type === 'AssignmentPattern')
-                p = p.left as oxc.ParamPattern
+        const args = params.map(x => {
 
-            if (init?.format === 'javascript' && p.typeAnnotation) {
-                magicString.remove(p.typeAnnotation.start, p.typeAnnotation.end)
+            const p = x.type === 'AssignmentPattern' ? x.left : x
+            const typeAnnotation = (p.type === 'Identifier' ? p.typeAnnotation : null) as oxc.TSTypeAnnotation | null
+
+            if (init?.format === 'javascript' && typeAnnotation) {
+                magicString.remove(typeAnnotation.start, typeAnnotation.end)
             }
 
-            return p.typeAnnotation
-                ? magicString.getSourceText(p.start, p.typeAnnotation.start).trim()
+            return typeAnnotation
+                ? magicString.getSourceText(p.start, typeAnnotation.start).trim()
                 : magicString.getSourceText(p.start, p.end).trim()
+
         }).map(arg => arg.endsWith('?') ? arg.slice(0, -1) : arg)
 
         return RPC_CALL(`"${name}"`, ...args);
@@ -105,7 +115,7 @@ export async function transform(fileName: string, code: string, init?: RPCTransf
         magicString.prependRight(returnType.start, `: ${promiseReturnType}`)
     }
 
-    for (const node of (program as oxc.Program).body) {
+    for (const node of (program).body) {
         if (
             node.type === 'ExportNamedDeclaration' ||
             node.type === 'ExportDefaultDeclaration'
@@ -283,6 +293,7 @@ export async function transform(fileName: string, code: string, init?: RPCTransf
 
 export function removeUnusedImports(fileName: string, source: string, lang?: "js" | "jsx" | "ts" | "tsx"): string {
     const ast = parseSync(fileName, source, { sourceType: "module", lang });
+    const magicString = new MagicString(source)
     // Map to track imported variables and their usage
     const importMap = new Map<string, {
         node: oxc.ImportDeclaration & {
@@ -303,7 +314,7 @@ export function removeUnusedImports(fileName: string, source: string, lang?: "js
                 }
             } else {
                 // console.log(`   ^ remove[ImportDeclaration]: empty ${node.source.value}`)
-                ast.magicString.remove(node.start, node.end)
+                magicString.remove(node.start, node.end)
             }
         }
     }
@@ -329,28 +340,28 @@ export function removeUnusedImports(fileName: string, source: string, lang?: "js
             const unusedSpecifiers = entry.node.specifiers.filter((specifier: any) => specifier.used === false)
             if (unusedSpecifiers.length === entry.node.specifiers.length) {
                 // console.log(`   ^ remove[ImportDeclaration]: ${name} - ${entry.node.source.value}`)
-                ast.magicString.remove(entry.node.start, entry.node.end)
+                magicString.remove(entry.node.start, entry.node.end)
             } else {
                 let lastStart = 0
                 let lastEnd = 0
                 for (const specifier of unusedSpecifiers) {
-                    const startComma = ast.magicString.getSourceText(specifier.start - 2, specifier.start)
-                    const endComma = ast.magicString.getSourceText(specifier.end, specifier.end + 2)
+                    const startComma = magicString.getSourceText(specifier.start - 2, specifier.start)
+                    const endComma = magicString.getSourceText(specifier.end, specifier.end + 2)
                     const hasStartComma: boolean = startComma.trim() === ','
                     const hasEndComma: boolean = endComma.trim() === ','
                     // console.log(`   ^ remove[ImportDeclarationSpecifier]: [${startComma}]${specifier.local.name}[${endComma}] from ${entry.node.source.value}`)
                     if (hasStartComma && lastEnd !== specifier.start) {
                         lastStart = specifier.start - 2
                         lastEnd = specifier.end
-                        ast.magicString.remove(specifier.start - 2, specifier.end)
+                        magicString.remove(specifier.start - 2, specifier.end)
                     } else if (hasEndComma && lastStart !== specifier.end) {
                         lastStart = specifier.start
                         lastEnd = specifier.end + 2
-                        ast.magicString.remove(specifier.start, specifier.end + 2)
+                        magicString.remove(specifier.start, specifier.end + 2)
                     } else {
                         lastStart = specifier.start
                         lastEnd = specifier.end
-                        ast.magicString.remove(specifier.start, specifier.end)
+                        magicString.remove(specifier.start, specifier.end)
                     }
                 }
             }
@@ -358,5 +369,5 @@ export function removeUnusedImports(fileName: string, source: string, lang?: "js
         }
     }
 
-    return ast.magicString.toString()
+    return magicString.toString()
 }

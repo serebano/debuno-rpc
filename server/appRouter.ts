@@ -57,6 +57,16 @@ export function createAppRouter(app: App): Router {
             (_req, url) => Response.redirect(`${url.origin}${app.config.server.base}`),
             appId
         ),
+        /** ?config - Returns remotes info */
+        route(
+            (_, url) => url.searchParams.has('config'),
+            () => new Response(JSON.stringify(app.config, null, 4), {
+                headers: {
+                    'content-type': 'application/json'
+                }
+            }),
+            appId
+        ),
         /** ?remotes - Returns remotes info */
         route(
             (_, url) => url.searchParams.has('remotes'),

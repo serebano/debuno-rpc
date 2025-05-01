@@ -7,7 +7,7 @@ await esbuild.build({
         "./server/index.ts"
     ],
     outdir: "./dist/server",
-    external: ["oxc-transform", "oxc-parser", "chokidar"],
+    external: ["oxc-transform", "oxc-parser", "chokidar", "magic-string"],
     platform: "node",
     bundle: true,
     format: "esm",

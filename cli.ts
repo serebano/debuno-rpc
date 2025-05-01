@@ -1,4 +1,4 @@
-#!/usr/bin/env deno -A -c deno.json
+#!/usr/bin/env deno -A
 import { parseArgs } from "jsr:@std/cli/parse-args";
 import { start } from "./server/start.ts";
 import process from "node:process";

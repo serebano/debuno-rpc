@@ -33,6 +33,7 @@ export interface Config {
     readonly $file?: string
     readonly dev: boolean
     readonly runtime: string
+    readonly rpcModDir: string
     readonly server: ConfigInit['server'];
     readonly client: {
         base: string;

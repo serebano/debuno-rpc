@@ -1,7 +1,7 @@
 {
     "name": "@debuno/rpc",
     "displayName": "DebunoRPC",
-    "version": "0.1.5",
+    "version": "0.1.9",
     "description": "Debuno RPC",
     "keywords": [
         "debuno",
@@ -45,7 +45,9 @@
     "dependencies": {
         "oxc-transform": "^0.67.0",
         "oxc-parser": "^0.67.0",
-        "chokidar": "^4.0.3"
+        "chokidar": "^4.0.3",
+        "magic-string": "^0.30.17",
+        "@oxc-project/types": "^0.67.0"
     },
     "publishConfig": {
         "access": "public"
@@ -55,6 +57,9 @@
         "client",
         "server",
         "types",
-        "utils"
+        "utils",
+        "templates",
+        "index.ts",
+        "client.d.ts"
     ]
 }

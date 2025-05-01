@@ -1,0 +1,6 @@
+#!/bin/sh
+_BASE=$(dirname $(realpath $0))
+_EXE_FILE="$_BASE/dist/cli/cli.js"
+_CFG_FILE="$_BASE/deno.json"
+
+deno run -A -c "$_CFG_FILE" "$_EXE_FILE" "$@"

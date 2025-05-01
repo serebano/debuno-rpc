@@ -197,6 +197,11 @@ export function defineConfig(init: ConfigInit): Config {
         get runtime() {
             return navigator.userAgent
         },
+        get rpcModDir() {
+            return import.meta.url.endsWith('.ts')
+                ? resolvePath('../', import.meta.url)
+                : resolvePath('../../', import.meta.url)
+        },
         get server() {
             return server
         },
@@ -204,8 +209,8 @@ export function defineConfig(init: ConfigInit): Config {
             return {
                 base: client.base!,
                 path: this.dev
-                    ? resolvePath('../client', import.meta.url)
-                    : resolvePath('../dist/client', import.meta.url)
+                    ? this.rpcModDir + 'client'
+                    : this.rpcModDir + 'dist/client'
                 ,
                 get rpcImportUrl() {
                     return this.base + 'rpc'

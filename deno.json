@@ -1,6 +1,6 @@
 {
     "name": "@debuno/rpc",
-    "version": "0.1.5",
+    "version": "0.1.6",
     "exports": {
         ".": "./index.ts",
         "./client": "./client.d.ts",
@@ -32,5 +32,6 @@
         "jsx": "react-jsx",
         "jsxImportSource": "http://esm.sh/preact"
     },
-    "nodeModulesDir": "auto"
+    "nodeModulesDir": "auto",
+    "lock": false
 }

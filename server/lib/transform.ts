@@ -1,6 +1,6 @@
 import path from "node:path";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
-import { transform } from 'npm:oxc-transform@0.58.1'
+import { transform } from 'oxc-transform'
 
 export async function transformFile(srcFilePath: string, outFilePath: string, sourceMapFilePath?: string): Promise<string> {
     srcFilePath = srcFilePath.replace('file:///', '/')

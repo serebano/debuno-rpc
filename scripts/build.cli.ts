@@ -7,7 +7,7 @@ await esbuild.build({
         "./cli.ts"
     ],
     outdir: "./dist/cli",
-    external: ["oxc-transform", "oxc-parser", "chokidar"],
+    external: ["oxc-transform", "oxc-parser", "chokidar", "magic-string"],
     platform: "node",
     bundle: true,
     format: "esm",
