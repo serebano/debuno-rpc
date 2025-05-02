@@ -1,4 +1,4 @@
-import chokidar, { type FSWatcher } from "npm:chokidar"
+import chokidar, { type FSWatcher } from "chokidar"
 
 const console = globalThis.console.extend('config')
 

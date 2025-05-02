@@ -1,4 +1,4 @@
-import type { ServerSentEventStreamTarget } from "https://deno.land/std@0.204.0/http/server_sent_event.ts";
+import type { ServerSentEventStreamTarget } from "./ServerSentEvent.ts";
 
 export interface Endpoint {
     $oid: string;

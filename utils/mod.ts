@@ -4,7 +4,7 @@ import process from "node:process";
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
-import type { App } from "../types/app.ts";
+import type { RPCApp } from "../types/app.ts";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -291,7 +291,7 @@ export function removeInlineSourceMap(code: string): string {
     // .replace(/(\r?\n){2,}/g, '\n'); // collapse multiple blank lines to one
 }
 
-export function moduleVersionTransform(source: string, file: string, http: string, app: App) {
+export function moduleVersionTransform(source: string, file: string, http: string, app: RPCApp) {
     console.debug(`[utils][moduleVersionTransform]`, http)
     // console.log('moduleVersionTransform(', [file, http], ')')
 

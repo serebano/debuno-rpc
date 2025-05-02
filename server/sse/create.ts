@@ -1,7 +1,7 @@
 import {
     ServerSentEvent,
     ServerSentEventStreamTarget,
-} from "https://deno.land/std@0.204.0/http/server_sent_event.ts";
+} from "./ServerSentEvent.ts";
 import type { SSE, SSETarget } from "./types.ts";
 
 if (typeof ErrorEvent === 'undefined') {

@@ -1,25 +1,25 @@
 // deno-lint-ignore-file
 import { createAppRouter } from "./appRouter.ts";
 import { getFiles, watchFiles } from "./sse/files.ts";
-import { addEndpoint, watchEndpointsConfig, removeEndpoint, getEndpoints, readEndpoints } from "./sse/endpoints.ts";
+import { addEndpoint, watchEndpointsConfig, removeEndpoint, readEndpoints } from "./sse/endpoints.ts";
 import { createSSE } from "./sse/create.ts";
 import meta from "./meta/mod.ts";
 import type { ConfigInit } from "../types/config.ts";
 import { defineConfig, parseRC } from "./config.ts";
 import type { Context } from "../types/context.ts";
 import { createEnv } from "./env.ts";
-import type { App, AppState } from "../types/app.ts";
+import type { RPCApp, AppState } from "../types/app.ts";
 import type { FSWatcher } from "npm:chokidar";
 import { extendConsole } from "../utils/console.ts";
-import type { RPCServer } from "./serve.ts";
+import type { RPCServer } from "../types/server.ts"
 import { readJSON } from "../utils/json.ts";
-import { getInspectorUrl, open } from "../utils/mod.ts";
+import { open } from "../utils/mod.ts";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type { FileEvent } from "../types/file.ts";
 
 
-export function createAppFrom(endpoint: string, path: string): App {
+export function createAppFrom(endpoint: string, path: string): RPCApp {
     const init = parseRC({ [endpoint]: path })[0]
 
     return createApp(init)
@@ -28,8 +28,8 @@ export function createAppFrom(endpoint: string, path: string): App {
 createApp.from = createAppFrom
 
 export interface AppOptions {
-    getApps?(app: App): App[]
-    onStateChanged?(app: App): void | Promise<void>
+    getApps?(app: RPCApp): RPCApp[]
+    onStateChanged?(app: RPCApp): void | Promise<void>
 }
 
 class State<T> {
@@ -72,7 +72,7 @@ function unwatchRemoteImport(remoteImport: string) {
     }
 }
 
-function createContext(app: App, opts?: AppOptions): Context {
+function createContext(app: RPCApp, opts?: AppOptions): Context {
     let files: any
     let importMap: any
     let importMapFile: any
@@ -215,7 +215,7 @@ function createContext(app: App, opts?: AppOptions): Context {
     return context
 }
 
-export function createApp(init: ConfigInit, opts?: AppOptions): App {
+export function createApp(init: ConfigInit, opts?: AppOptions): RPCApp {
 
     const state = new State<AppState>('created', async () => {
         app.context.sse.emit('state', {
@@ -246,7 +246,7 @@ export function createApp(init: ConfigInit, opts?: AppOptions): App {
         get endpoint() {
             return app.config.server.endpoint
         },
-        get path() {
+        get dirname() {
             return app.config.server.path
         },
         get state() {
@@ -256,7 +256,7 @@ export function createApp(init: ConfigInit, opts?: AppOptions): App {
             return appConfig
         },
         isRestarting: false
-    } as App
+    } as RPCApp
 
     app.start = start
     app.stop = stop

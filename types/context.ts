@@ -1,6 +1,6 @@
-import type { RPCServer } from "../server/serve.ts";
+import type { RPCServer } from "./server.ts";
 import type { SSE } from "../server/sse/types.ts";
-import type { App, AppState } from "./app.ts";
+import type { RPCApp, AppState } from "./app.ts";
 import type { Env } from "./env.ts";
 
 export interface Context {
@@ -15,11 +15,11 @@ export interface Context {
     getFiles(force?: boolean): Promise<import("../server/sse/types.ts").File[]>
     getImportMap(force?: boolean): Promise<Record<string, string>>
     watchRemoteImport(endpoint: string, importUrl: string, importerUrl: string): void
-    get apps(): App[]
+    get apps(): RPCApp[]
     get state(): AppState
-    start(): Promise<App>
-    stop(): Promise<App>
-    restart(): Promise<App>
+    start(): Promise<RPCApp>
+    stop(): Promise<RPCApp>
+    restart(): Promise<RPCApp>
 
     get remotes(): {
         watchers: Map<string, EventSource>;

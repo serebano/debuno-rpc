@@ -2,11 +2,11 @@ import { pathToFileURL } from "node:url";
 import { RPC_DIR } from "../config.ts";
 import type { SSE, SSETarget, FileEvent, Endpoint, SyncEndpointsResult } from "./types.ts";
 import { getChanges, md5 } from "../../utils/mod.ts";
-import chokidar, { type FSWatcher } from "npm:chokidar"
+import chokidar, { type FSWatcher } from "chokidar"
 import type { Config } from "../../types/config.ts";
 import { atomicWriteJSON, readJSON } from "../../utils/json.ts";
 import { extendConsole } from "../../utils/console.ts";
-import type { App } from "../../types/app.ts";
+import type { RPCApp } from "../../types/app.ts";
 
 const console = extendConsole('endpoints')
 
@@ -18,7 +18,7 @@ const MAX_FAILED = 1
 const oid = (o: any) => md5([o.endpoint, o.file].join('|'))
 
 
-export function watchEndpointsConfig(app: App): FSWatcher {
+export function watchEndpointsConfig(app: RPCApp): FSWatcher {
     const target = app.context.sse
     console.debug(`[watch]`, ENDPOINTS_CONFIG_PATH)
     let __endpoints__ = [] as Endpoint[] //await readEndpoints()

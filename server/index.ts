@@ -5,7 +5,7 @@ import { start } from "./start.ts";
 import { serve } from "./serve.ts";
 export type { ConfigInit, Config } from "../types/config.ts";
 export type { ServerAddr } from "../types/server.ts";
-export type { App } from '../types/app.ts';
+export type { RPCApp as App } from '../types/app.ts';
 
 
 export {

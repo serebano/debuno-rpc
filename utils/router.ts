@@ -1,11 +1,11 @@
-import type { App } from "../types/app.ts";
+import type { RPCApp } from "../types/app.ts";
 import type { Hooks, Route, Router } from "../types/router.ts";
 import { cyan, gray, green, red } from "./colors.ts";
 import { extendConsole } from "./console.ts";
 
 const console = extendConsole('router', { showNS: false })
 
-export function createRoute<F extends (app: App) => Route>(factory: F): F {
+export function createRoute<F extends (app: RPCApp) => Route>(factory: F): F {
     return factory;
 }
 

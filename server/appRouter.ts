@@ -1,5 +1,5 @@
 import type { Router } from "../types/router.ts";
-import { moduleVersionTransform, open } from "../utils/mod.ts";
+import { open } from "../utils/mod.ts";
 import { createRouter, route } from "../utils/router.ts";
 import libRoute from "./lib/route.ts";
 import meta from "./meta/mod.ts";
@@ -7,10 +7,10 @@ import rpcRoute from './rpc/route.ts'
 import { getFiles } from "./sse/files.ts";
 import { getEndpoints, readEndpoints } from "./sse/endpoints.ts";
 import sseRoute from './sse/route.ts'
-import type { App } from "../types/app.ts";
-import { readFile } from "node:fs/promises";
+import type { RPCApp } from "../types/app.ts";
 
-export function createAppRouter(app: App): Router {
+
+export function createAppRouter(app: RPCApp): Router {
     const appId = [app.config.server.$id, app.config.server.base].join(':')
 
     return createRouter([
@@ -280,20 +280,20 @@ export function createAppRouter(app: App): Router {
             },
             appId
         ),
-        /** ?json */
+        /** ?info */
         route(
-            (req, url) => url.searchParams.has('json') || (url.pathname === app.config.server.base && req.headers.get('x-dest') === 'document'),
-            async (req, url) => new Response(JSON.stringify({
-                files: await getFiles({
-                    path: app.config.server.path,
-                    base: app.config.server.base,
-                    filter: app.config.filter,
-                    origin: url.origin,
-                    endpoint: app.config.server.endpoint
-                }),
-                origins: await readEndpoints(),
+            // (req, url) => url.searchParams.has('json') || (url.pathname === app.config.server.base && req.headers.get('x-dest') === 'document'),
+            (_, url) => url.searchParams.has('info') && (url.pathname === app.config.server.base),
+            async () => new Response(JSON.stringify({
+                endpoint: app.endpoint,
+                dirname: app.dirname,
+                files: await app.context.getFiles(),
+                importMap: await app.context.getImportMap(),
+                apps: Object.fromEntries((await readEndpoints()).map(e => [e.endpoint, e.file])),
                 endpoints: app.context.endpoints,
-                meta: meta
+                meta: meta,
+                remotes: app.context.remotes,
+                config: app.config
             }, null, 4), {
                 headers: {
                     'content-type': 'application/json'

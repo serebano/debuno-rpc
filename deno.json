@@ -13,7 +13,7 @@
         "build": "deno run build:server && deno run build:client && deno run build:cli"
     },
     "imports": {
-        "@debuno/serve": "../debuno-serve/mod.ts",
+        "@debuno/serve": "../dev/debuno-serve/mod.ts",
         "@debuno/rpc/client": "./client.d.ts",
         "@debuno/rpc": "./index.ts"
     },

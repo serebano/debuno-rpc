@@ -14,4 +14,5 @@
 // export const boldGreen = (s: any) => `\u001B[1;32m${s}\u001B[0m`
 // export const boldMagenta = (s: any) => `\u001B[1;35m${s}\u001B[0m`
 
+export * as colors from "jsr:@std/fmt@~1.0.2/colors";
 export * from "jsr:@std/fmt@~1.0.2/colors";

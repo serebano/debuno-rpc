@@ -1,8 +1,8 @@
 import type { File, FileEvent, SSE, SSETarget } from "./types.ts";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { getLangFromExt, readDir } from "../../utils/mod.ts";
-import chokidar, { type FSWatcher } from "npm:chokidar"
+import { readDir } from "../../utils/mod.ts";
+import chokidar, { type FSWatcher } from "chokidar"
 import * as meta from '../meta/mod.ts'
 
 const console = globalThis.console.extend('files')

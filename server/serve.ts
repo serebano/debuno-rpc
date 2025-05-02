@@ -1,53 +1,19 @@
-import type { App } from "../types/app.ts";
+import type { RPCApp } from "../types/app.ts";
 import { getChanges, groupByDeep } from "../utils/mod.ts";
 import { createApp, type AppOptions } from "./app.ts";
 import { watchRC } from "./config/watch.ts";
 import { loadRC, parseRC, type ConfigInit, type ServerAddr } from "./index.ts";
-import * as debunoServe from "/Users/serebano/dev/debuno-serve/mod.ts";
+import * as debunoServe from "@debuno/serve";
 import { extendConsole } from "../utils/console.ts";
 import defaultRouter from "./defaultRouter.ts";
-import type { FSWatcher } from "npm:chokidar";
 import { blue } from "../utils/colors.ts";
+import type { RPCServeInstance, RPCServeOptions, RPCServer, RPCServerState } from "../types/server.ts";
+import defaultServeOptions from './serve.options.ts'
 
 const console = extendConsole('serve')
 
 const defaultRoute = defaultRouter().fetch
 
-export type RPCServerState = 'created' | 'starting' | 'listening' | 'closed' | 'errored'
-export interface RPCServer {
-    $id: string;
-    config: ConfigInit['server']
-    /** debuno-serve server instance */
-    server?: debunoServe.Server;
-    error?: Error | string;
-
-    addr?: ServerAddr;
-    apps: App[];
-
-    state: RPCServerState;
-    closed: Promise<void>
-    listening: Promise<void>
-    finished: Promise<void>
-    start: () => Promise<RPCServer>;
-    stop: () => Promise<RPCServer>;
-    restart: () => Promise<RPCServer>;
-}
-
-export interface RPCServeOptions {
-    throwIfError?: boolean;
-    onServerStateChanged?: (server: RPCServer) => void;
-    onAppStateChanged?: (app: App) => void;
-}
-
-export interface RPCServeInstance {
-    get configs(): ConfigInit[]
-    get options(): RPCServeOptions
-    get apps(): App[]
-    servers: Map<string, RPCServer>
-    watcher: FSWatcher | null
-    shutdown: () => Promise<void>
-    reload(): Promise<void>
-}
 
 export async function serve(): Promise<RPCServeInstance>
 export async function serve(rcFilePath?: string, options?: RPCServeOptions): Promise<RPCServeInstance>
@@ -69,6 +35,8 @@ export async function serve(
     if (!configs.length) {
         throw new Error('No configs found')
     }
+
+    options = options || defaultServeOptions
 
     const instance = {
         get configs() {
@@ -95,8 +63,8 @@ export async function serve(
         }
     }
 
-    function getApps(): App[] {
-        let apps = [] as App[]
+    function getApps(): RPCApp[] {
+        let apps = [] as RPCApp[]
         for (const config of instance.configs) {
             const _apps = instance.servers.get(config.server.$id)?.apps //.find(app => app.config.$uid === config.$uid)
             if (_apps)
@@ -308,7 +276,7 @@ export async function serve(
 
 function createServer(
     config: ConfigInit['server'],
-    apps: App[],
+    apps: RPCApp[],
     options?: RPCServeOptions
 ): RPCServer {
     const $id = config.$id

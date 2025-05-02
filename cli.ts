@@ -10,9 +10,10 @@ import { fileExists } from "./utils/mod.ts";
 import { rm } from "node:fs/promises";
 import { copyFolder } from "./utils/fs.ts";
 import { extendConsole } from "./utils/console.ts";
-import type { RPCServeInstance } from "./server/serve.ts";
+import { serve } from "./server/serve.ts";
 import * as  colors from "./utils/colors.ts";
 import { atomicWriteJSON, readJSON } from "./utils/json.ts";
+import type { RPCServeInstance } from "./types/server.ts";
 
 const console = extendConsole('cli', { showNS: false, colors: { info: 'white', debug: 'white' } })
 // console.clear()
@@ -43,44 +44,22 @@ let inspectDev = args.idev || args["--idev"] || false
 // console.log({ args })
 const commands = {
     start: {
-        description: "Start the RPC server",
-        options: {
-            "--rc": {
-                type: "string",
-                description: "Path to the RPC config file",
-            },
-        },
+        description: "Start using config [filename] or from [dirname]",
+    },
+    serve: {
+        description: "Serve from [dirname] at [endpoint]",
     },
     config: {
         description: "Show the RPC config",
-        options: {
-            "--rc": {
-                type: "string",
-                description: "Path to the RPC config file",
-            },
-        },
     },
     create: {
-        description: "Create a new RPC App",
-        options: {
-            "--rc": {
-                type: "string",
-                description: "Path to the RPC config file",
-            },
-        },
+        description: "Create new RPC App",
     },
     clean: {
         description: "Clean the RPC cache",
-        options: {},
     },
     help: {
         description: "Show help",
-        options: {
-            "--rc": {
-                type: "string",
-                description: "Path to the RPC config file",
-            },
-        },
     }
 }
 
@@ -95,6 +74,9 @@ const CREATE_TEMPLATES = {
         src: path.join(RPC_MOD_DIR, "templates/basic")
     },
 }
+
+console.log(`${blue(pkg.displayName)}/${gray(VERSION)} ${navigator.userAgent} ${gray(`(${RPC_MOD_DIR})`)}`)
+console.log()
 
 async function create(endpoint: string, dirname: string, opts?: { force: boolean }) {
     console.debug(`creating: ${endpoint} => ${dirname}`)
@@ -242,7 +224,7 @@ function initCmds(input: [cmd?: string | undefined, idx?: number | undefined], k
             return {
                 hint: `${bold(brightWhite('e'))}dit`,
                 get desc() {
-                    return `Edit app#${yellow(idx.toString())} ${green(instance?.apps.at(idx)?.endpoint ?? '')} ${gray(instance?.apps.at(idx)?.path ?? '')}`
+                    return `Edit app#${yellow(idx.toString())} ${green(instance?.apps.at(idx)?.endpoint ?? '')} ${gray(instance?.apps.at(idx)?.dirname ?? '')}`
                 }
             } as const
         },
@@ -250,7 +232,7 @@ function initCmds(input: [cmd?: string | undefined, idx?: number | undefined], k
             return {
                 hint: `${bold(brightWhite('c'))}ode`,
                 get desc() {
-                    return `Code app#${yellow(idx.toString())} ${green(instance?.apps.at(idx)?.endpoint ?? '')} ${gray(instance?.apps.at(idx)?.path ?? '')}`
+                    return `Code app#${yellow(idx.toString())} ${green(instance?.apps.at(idx)?.endpoint ?? '')} ${gray(instance?.apps.at(idx)?.dirname ?? '')}`
                 }
             } as const
         },
@@ -268,7 +250,7 @@ function initCmds(input: [cmd?: string | undefined, idx?: number | undefined], k
                 hint: `${bold(brightWhite('r'))}estart`,
                 get desc() {
                     return hasIdx
-                        ? `Restart app[${yellow(idx.toString())}] { ${colors.brightYellow(app.endpoint)}: ${colors.brightGreen(app.path)} }`
+                        ? `Restart app[${yellow(idx.toString())}] { ${colors.brightYellow(app.endpoint)}: ${colors.brightGreen(app.dirname)} }`
                         : `Restart instance (servers & apps)`
                 }
             } as const
@@ -281,7 +263,7 @@ function initCmds(input: [cmd?: string | undefined, idx?: number | undefined], k
                 hint: `${bold(brightWhite('s'))}top`,
                 get desc() {
                     return hasIdx
-                        ? `Stop app[${yellow(idx.toString())}] { ${colors.brightYellow(app.endpoint)}: ${colors.brightGreen(app.path)} }`
+                        ? `Stop app[${yellow(idx.toString())}] { ${colors.brightYellow(app.endpoint)}: ${colors.brightGreen(app.dirname)} }`
                         : `Stop instance (servers & apps)`
                 }
             } as const
@@ -343,7 +325,7 @@ async function runCmd(input: [cmd?: string | undefined, idx?: number | undefined
             case "c": {
                 const app = instance?.apps.at(idx)
                 if (app)
-                    await app.exec('code', [app.path])
+                    await app.exec('code', [app.dirname])
             }
                 break
             case "e":
@@ -355,7 +337,7 @@ async function runCmd(input: [cmd?: string | undefined, idx?: number | undefined
                         'index: ' + yellow(idx.toString()),
                         'state: ' + magenta(app.state),
                         'endpoint: ' + green(app.endpoint),
-                        'path: ' + cyan(app.path),
+                        'path: ' + cyan(app.dirname),
                     ]
                         .join('\n'))
                         .join('\n-----------\n') || '')
@@ -371,6 +353,25 @@ async function runCmd(input: [cmd?: string | undefined, idx?: number | undefined
 
     if (log)
         console.groupEnd()
+}
+
+async function serveCmd() {
+    try {
+        if (args._.length === 2) {
+            const endpoint = String(args._[0]) as string
+            const dirname = String(args._[1]) as string
+
+            instance = await serve({
+                [endpoint]: dirname
+            })
+        } else {
+            instance = await start(rcDir || rcFileNames?.at(0))
+        }
+
+        shortcutsListener()
+    } catch (e: any) {
+        console.error(e)
+    }
 }
 
 switch (command) {
@@ -429,12 +430,8 @@ switch (command) {
         }
         break;
     case "start":
-        try {
-            instance = await start(rcDir || rcFileNames?.at(0))
-            shortcutsListener()
-        } catch (e: any) {
-            console.error(e)
-        }
+    case "serve":
+        await serveCmd()
         break;
     case "config":
         try {
@@ -450,7 +447,8 @@ switch (command) {
         }
         break;
     default:
-        console.group(`${blue(pkg.displayName)}/${gray(VERSION)} ${navigator.userAgent} ${gray(`(${RPC_MOD_DIR})`)}`)
+        // console.group(`${blue(pkg.displayName)}/${gray(VERSION)} ${navigator.userAgent} ${gray(`(${RPC_MOD_DIR})`)}`)
+        console.group()
         console.log()
         console.log(gray('Usage:'), BIN, gray(`[command] [options] [RC_FILE_ARG]...`));
         console.log()
@@ -475,9 +473,10 @@ switch (command) {
         console.log()
         // examples
         console.group(yellow(`Examples:`));
-        console.log(`  ${BIN} start [rpc.json|deno.json|dirname]`);
-        console.log(`  ${BIN} config [rpc.json|deno.json|dirname]`);
+        console.log(`  ${BIN} serve [dirname|filename]`);
+        console.log(`  ${BIN} serve [endpoint] [dirname]`);
         console.log(`  ${BIN} create [endpoint] [dirname]`);
+        console.log(`  ${BIN} config [dirname|filename]`);
 
         console.groupEnd()
 
