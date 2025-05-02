@@ -195,7 +195,7 @@ function createContext(app: RPCApp, opts?: AppOptions): Context {
             space: 2,
             keepAlive: true,
             async onTargetCreated(target) {
-                const apps = opts?.getApps?.(app) ?? []
+                // const apps = opts?.getApps?.(app) ?? []
 
                 target.emit('state', {
                     state: app.state,
@@ -203,8 +203,10 @@ function createContext(app: RPCApp, opts?: AppOptions): Context {
                     path: app.config.server.path
                 })
 
-                if (apps.length)
-                    target.emit('endpoints', apps.map(app => app.endpoint))
+                // if (apps.length)
+                //     target.emit('endpoints', apps.map(app => app.endpoint))
+
+                target.emit('endpoints', context.endpoints.filter(e => e !== app.endpoint))
 
 
                 target.emit('files', await context.getFiles(true))

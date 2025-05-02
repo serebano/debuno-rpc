@@ -1,7 +1,7 @@
 {
     "name": "@debuno/rpc",
     "displayName": "DebunoRPC",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "description": "Debuno RPC",
     "keywords": [
         "debuno",
