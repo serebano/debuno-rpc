@@ -17,7 +17,7 @@ export default {
         if (app.state === 'stopped')
             console.log(colors.brightWhite('(app)'), colors.brightYellow(app.state), `${colors.gray(`[${app.config.server.$id}]`)}${colors.white(`[${app.config.server.base}]`)}`)
         if (app.state === 'updated')
-            console.log(colors.brightWhite('(app)'), colors.brightGreen(app.state), `${colors.yellow(`[${app.config.server.$id}]`)}${colors.white(`[${app.config.server.base}]`)}`, app.config.server.path)
+            console.log(colors.brightWhite('(app)'), colors.brightGreen(app.state), `${colors.yellow(`[${app.config.server.$id}]`)}${colors.white(`[${app.config.server.base}]`)}`, app.config.server.dirname)
 
     }
 } satisfies RPCServeOptions

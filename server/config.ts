@@ -59,7 +59,7 @@ export async function loadRC(fileNames?: string | string[]): Promise<ConfigInit[
     return mapToSet(config, $file)
         .map(server => {
             const $id = [server.$id, server.base].join('')
-            const $uid = [$id, server.path].join(',')
+            const $uid = [$id, server.dirname].join(',')
 
             return {
                 $id,
@@ -144,9 +144,10 @@ export function parseRC(input: ParseRCInput, group: boolean = false): any {
     const inits: ConfigInit[] = mapToSet(input)
         .map(server => {
             const $id = [server.$id, server.base].join('')
-            const $uid = [$id, server.path].join(',')
+            const $uid = [$id, server.dirname].join(',')
             const $file = undefined
-            server.path = resolve(server.path)
+            server.dirname = resolve(server.dirname)
+
             return {
                 $id,
                 $uid,
@@ -167,7 +168,7 @@ export function defineConfig(init: ConfigInit): Config {
     init = { ...init }
     const server = init.server = init.server || {}
 
-    server.path = server.path ? (server.path) : process.cwd()
+    server.dirname = server.dirname ? (server.dirname) : process.cwd()
     server.port = Number(server.port || 0)
     server.base = formatBase(server.base)
 
@@ -175,7 +176,7 @@ export function defineConfig(init: ConfigInit): Config {
 
     client.base = formatBase(server.base + (client.base || '@client'))
 
-    const denoConfig = getDenoConfig(server.path)
+    const denoConfig = getDenoConfig(server.dirname)
 
     const shared = init.shared = init.shared || {}
 
@@ -247,7 +248,7 @@ export function defineConfig(init: ConfigInit): Config {
             }
         },
         get rpcDir() {
-            return join(this.server.path, '.rpc')
+            return join(this.server.dirname, '.rpc')
         },
         get genDir() {
             return join(this.rpcDir, 'gen')
@@ -261,7 +262,7 @@ export function defineConfig(init: ConfigInit): Config {
         getEnv(url) {
             return {
                 DEV: this.dev,
-                PATH: this.server.path,
+                PATH: this.server.dirname,
                 PORT: this.server.port,
                 BASE: this.server.base,
                 ORIGIN: new URL(String(url)).origin,

@@ -4,26 +4,27 @@ import { pathToFileURL } from "node:url";
 import { readDir } from "../../utils/mod.ts";
 import chokidar, { type FSWatcher } from "chokidar"
 import * as meta from '../meta/mod.ts'
+import type { App } from "../index.ts";
 
 const console = globalThis.console.extend('files')
 
-export async function getFiles(init: { path: string, base: string, origin: string, endpoint: string, filter: (...args: any[]) => boolean }): Promise<File[]> {
-    init.origin = new URL(init.origin).origin
-    console.debug(`[get]`, [init.path, init.origin + init.base])
+export async function getFiles(app: App): Promise<File[]> {
+    console.debug(`[get]`, [app.config.server.dirname, app.config.server.endpoint])
 
-    return await readDir(init.path)
-        .catch(() => [] as string[])
+    return await readDir(app.config.server.dirname)
+        .catch(() => [])
         .then(files => files
-            .filter(init.filter)
+            .filter(app.config.filter)
             .map(path => {
-                const base = init.base
-                const file = pathToFileURL(join(init.path, path)).href
-                const http = new URL(base + path, init.origin).href
+                const base = app.config.server.base
+                const file = pathToFileURL(join(app.config.server.dirname, path)).href
+                const http = new URL(base + path, app.config.server.endpoint).href
                 const version = meta.versions[http] || null
                 const timestamp = meta.timestamps[http] || null
                 const dependents = meta.dependents[http] || null
                 const dependencies = meta.dependencies[http] || null
-                const endpoint = init.endpoint
+                const endpoint = app.config.server.endpoint
+                const dirname = app.config.server.dirname
                 // const lang = getLangFromExt(file)
 
                 return {
@@ -34,6 +35,7 @@ export async function getFiles(init: { path: string, base: string, origin: strin
                     http,
                     version,
                     endpoint,
+                    dirname,
                     timestamp,
                     dependents,
                     dependencies
@@ -42,23 +44,12 @@ export async function getFiles(init: { path: string, base: string, origin: strin
         )
 }
 
-export function watchFiles(init: {
-    path: string,
-    base: string,
-    origin: string | URL,
-    endpoint: string,
-    target: SSE | SSETarget,
-    filter: (...args: any[]) => boolean
-}, listener: (target: SSE | SSETarget, event: FileEvent) => void): FSWatcher {
+export function watchFiles(app: App, listener: (event: FileEvent) => void): FSWatcher {
+    console.debug(`[watch]`, app.dirname)
 
-    init.origin = new URL(init.origin).origin
-
-    const { path, target, filter } = init
-    console.debug(`[watch]`, path)
-
-    const emit = (type: FileEvent['type']) => (path: string) => listener(target, createFileEvent({ type, path }, { path: init.path, base: init.base, endpoint: init.endpoint, origin: String(init.origin) }))
-    const watcher = chokidar.watch(path, {
-        ignored: (path, stats) => (stats?.isFile() && !filter(path)) as boolean,
+    const emit = (type: FileEvent['type']) => (path: string) => listener(createFileEvent({ type, path }, app))
+    const watcher = chokidar.watch(app.dirname, {
+        ignored: (path, stats) => (stats?.isFile() && !app.config.filter(path)) as boolean,
         persistent: true,
         ignoreInitial: true,
     });
@@ -70,17 +61,18 @@ export function watchFiles(init: {
 }
 
 
-function createFileEvent(event: { type: FileEvent['type'], path: string }, init: { path: string, base: string, endpoint: string, origin: string }): FileEvent {
+function createFileEvent(event: { type: FileEvent['type'], path: string }, app: App): FileEvent {
     const type = event.type
-    const base = init.base
-    const path = event.path.replace(init.path + "/", '')
+    const base = app.config.server.base
+    const path = event.path.replace(app.dirname + "/", '')
     const file = new URL(event.path, 'file://').href
-    const http = new URL(base + path, init.origin).href
+    const http = new URL(base + path, app.endpoint).href
     const version = 0
-    const endpoint = init.endpoint
+    const endpoint = app.endpoint
+    const dirname = app.dirname
     const timestamp = Date.now()
     // const lang = getLangFromExt(file)
 
 
-    return { type, base, path, file, http, version, endpoint, timestamp, dependents: null, dependencies: null }
+    return { type, base, path, file, http, version, endpoint, dirname, timestamp, dependents: null, dependencies: null }
 }

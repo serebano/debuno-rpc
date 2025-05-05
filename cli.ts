@@ -206,7 +206,7 @@ function initCmds(input: [cmd?: string | undefined, idx?: number | undefined], k
     const shortcuts = {
         get x() {
             return {
-                hint: `e${bold(brightWhite('x'))}it`,
+                hint: `e[${bold(brightWhite('x'))}]it`,
                 get desc() {
                     return `Shutdown all ${yellow(valid.idxs.length.toString())} apps` as const
                 }
@@ -214,7 +214,7 @@ function initCmds(input: [cmd?: string | undefined, idx?: number | undefined], k
         },
         get i() {
             return {
-                hint: `${bold(brightWhite('i'))}nspect`,
+                hint: `[${bold(brightWhite('i'))}]nspect`,
                 get desc() {
                     return `Inspect app#${yellow(idx.toString())} ${green(instance?.apps.at(idx)?.endpoint ?? '')}`
                 }
@@ -222,7 +222,7 @@ function initCmds(input: [cmd?: string | undefined, idx?: number | undefined], k
         },
         get e() {
             return {
-                hint: `${bold(brightWhite('e'))}dit`,
+                hint: `[${bold(brightWhite('e'))}]dit`,
                 get desc() {
                     return `Edit app#${yellow(idx.toString())} ${green(instance?.apps.at(idx)?.endpoint ?? '')} ${gray(instance?.apps.at(idx)?.dirname ?? '')}`
                 }
@@ -230,7 +230,7 @@ function initCmds(input: [cmd?: string | undefined, idx?: number | undefined], k
         },
         get c() {
             return {
-                hint: `${bold(brightWhite('c'))}ode`,
+                hint: `[${bold(brightWhite('c'))}]ode`,
                 get desc() {
                     return `Code app#${yellow(idx.toString())} ${green(instance?.apps.at(idx)?.endpoint ?? '')} ${gray(instance?.apps.at(idx)?.dirname ?? '')}`
                 }
@@ -238,7 +238,7 @@ function initCmds(input: [cmd?: string | undefined, idx?: number | undefined], k
         },
         get u() {
             return {
-                hint: `${bold(brightWhite('u'))}ris`,
+                hint: `[${bold(brightWhite('u'))}]ris`,
                 desc: `Show available uris`
             } as const
         },
@@ -247,7 +247,7 @@ function initCmds(input: [cmd?: string | undefined, idx?: number | undefined], k
             const hasIdx = input.length === 2 && app
 
             return {
-                hint: `${bold(brightWhite('r'))}estart`,
+                hint: `[${bold(brightWhite('r'))}]estart`,
                 get desc() {
                     return hasIdx
                         ? `Restart app[${yellow(idx.toString())}] { ${colors.brightYellow(app.endpoint)}: ${colors.brightGreen(app.dirname)} }`
@@ -260,7 +260,7 @@ function initCmds(input: [cmd?: string | undefined, idx?: number | undefined], k
             const hasIdx = input.length === 2 && app
 
             return {
-                hint: `${bold(brightWhite('s'))}top`,
+                hint: `[${bold(brightWhite('s'))}]top`,
                 get desc() {
                     return hasIdx
                         ? `Stop app[${yellow(idx.toString())}] { ${colors.brightYellow(app.endpoint)}: ${colors.brightGreen(app.dirname)} }`
@@ -270,7 +270,7 @@ function initCmds(input: [cmd?: string | undefined, idx?: number | undefined], k
         },
         get h() {
             return {
-                hint: `${bold(brightWhite('h'))}elp`,
+                hint: `[${bold(brightWhite('h'))}]elp`,
                 desc: `Usage info to help you quick start`
             } as const
         }
@@ -291,7 +291,7 @@ function initCmds(input: [cmd?: string | undefined, idx?: number | undefined], k
 async function runCmd(input: [cmd?: string | undefined, idx?: number | undefined], key: SKeys, idx: number, log?: boolean) {
     const { showHelp, hints, desc } = initCmds(input, key, idx)
     if (log)
-        console.group((`${colors.brightMagenta(`[${hints[key]}]`)} ${desc[key] ? gray((desc[key])) : ''}`))
+        console.group((`${colors.brightMagenta(`${hints[key]}`)} ${desc[key] ? gray((desc[key])) : ''}`))
 
     async function _run() {
         switch (key) {
@@ -438,7 +438,7 @@ switch (command) {
             const rc = await loadRC(rcDir || rcFileNames);
             const map = rc.reduce((acc, { server }) => {
                 // acc[`${server.$addr}`] = server.endpoint
-                acc[`${server.endpoint}`] = server.path
+                acc[`${server.endpoint}`] = server.dirname
                 return acc
             }, {} as Record<string, any>)
             console.log(map)

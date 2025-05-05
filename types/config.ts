@@ -12,7 +12,7 @@ export interface ConfigInit {
         readonly $file?: string,
         endpoint: string;
         url: URL;
-        path: string;
+        dirname: string;
         port: number;
         base: string;
         host: string;

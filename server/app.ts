@@ -55,8 +55,35 @@ const remoteEndpointsMap = new Map<string, Set<string>>()
 const remoteImportersMap = new Map<string, Set<string>>()
 const remoteImportsMap = new Map<string, Set<string>>()
 const remoteImportToEndpointMap = new Map<string, string>()
+const remoteAppImportsMap = new Map<string, Set<string>>()
 
+function unwatchRemoteEndpoint(endpoint: string) {
+    console.log(`unwatchRemoteEndpoint(${endpoint}`)
+
+    const remoteEndpointImports = remoteEndpointsMap.get(endpoint)
+    if (remoteEndpointImports) {
+        for (const remoteImport of remoteEndpointImports) {
+            remoteEndpointImports.delete(remoteImport)
+            remoteImportToEndpointMap.delete(remoteImport)
+        }
+        remoteEndpointsMap.delete(endpoint)
+        remoteImportsWatchers.get(endpoint)?.close()
+        remoteImportsWatchers.delete(endpoint)
+    }
+}
+function unwatchRemoteAppImports(appEndpoint: string) {
+    console.log(`unwatchRemoteAppImports(${appEndpoint}`)
+
+    const remoteImports = remoteAppImportsMap.get(appEndpoint)
+    if (remoteImports) {
+        for (const remoteImport of remoteImports) {
+            unwatchRemoteImport(remoteImport)
+        }
+    }
+}
 function unwatchRemoteImport(remoteImport: string) {
+    console.log(`unwatchRemoteImport(${remoteImport}`)
+
     const endpoint = remoteImportToEndpointMap.get(remoteImport)
     if (endpoint) {
         const remoteEndpointImports = remoteEndpointsMap.get(endpoint)
@@ -85,6 +112,7 @@ function createContext(app: RPCApp, opts?: AppOptions): Context {
                 importers: remoteImportersMap,
                 imports: remoteImportsMap,
                 unwatchImport: unwatchRemoteImport,
+                appImports: remoteAppImportsMap.get(app.endpoint),
                 toJSON() {
                     const state = context.remotes;
                     const watchers: Record<string, number> = {};
@@ -101,7 +129,8 @@ function createContext(app: RPCApp, opts?: AppOptions): Context {
                         ),
                         imports: Object.fromEntries(
                             Array.from(state.imports.entries()).map(([k, v]) => [k, Array.from(v)])
-                        )
+                        ),
+                        appImports: [...state.appImports || []]
                     }
                 }
             }
@@ -114,13 +143,7 @@ function createContext(app: RPCApp, opts?: AppOptions): Context {
         },
         async getFiles(force) {
             if (!files || force)
-                files = await getFiles({
-                    path: app.config.server.path,
-                    base: app.config.server.base,
-                    filter: app.config.filter,
-                    origin: app.config.server.endpoint,
-                    endpoint: app.config.server.endpoint
-                })
+                files = await getFiles(app)
             return files
         },
         async getImportMap(force) {
@@ -150,6 +173,28 @@ function createContext(app: RPCApp, opts?: AppOptions): Context {
         watchRemoteImport(endpoint, importUrl, importerUrl) {
             if (!remoteImportsWatchers.has(endpoint)) {
                 const es = new EventSource(endpoint)
+                es.addEventListener('open', () => {
+                    console.log(`watchRemoteImport(${endpoint}, ${importUrl}, ${importerUrl})`, isRestarting ? ' RESTARTED' : 'OPEN')
+                    isRestarting = false
+                })
+                es.addEventListener('error', () => {
+                    if (es.readyState === es.CLOSED) {
+                        unwatchRemoteEndpoint(endpoint)
+                    }
+                })
+                let isRestarting = false
+                es.addEventListener('restart', () => {
+                    isRestarting = true
+                })
+                es.addEventListener('state', (e) => {
+                    if (isRestarting) return
+                    const data = JSON.parse(e.data) as { state: AppState, endpoint: string }
+                    if (data.endpoint === endpoint) {
+                        if (data.state === 'stopped' || data.state === 'updated') {
+                            unwatchRemoteEndpoint(endpoint)
+                        }
+                    }
+                })
                 es.addEventListener('file', e => {
                     const data = JSON.parse(e.data) as FileEvent
                     const url = data.http
@@ -180,9 +225,14 @@ function createContext(app: RPCApp, opts?: AppOptions): Context {
                 remoteImportsMap.set(importUrl, new Set())
             }
 
+            if (!remoteAppImportsMap.has(app.endpoint)) {
+                remoteAppImportsMap.set(app.endpoint, new Set())
+            }
+
             remoteEndpointsMap.get(endpoint)?.add(importUrl)
             remoteImportersMap.get(importerUrl)?.add(importUrl)
             remoteImportsMap.get(importUrl)?.add(importerUrl)
+            remoteAppImportsMap.get(app.endpoint)?.add(importUrl)
 
             console.debug(`[watchRemoteImport]`, { endpoint, importUrl, importerUrl })
         },
@@ -200,7 +250,8 @@ function createContext(app: RPCApp, opts?: AppOptions): Context {
                 target.emit('state', {
                     state: app.state,
                     endpoint: app.endpoint,
-                    path: app.config.server.path
+                    dirname: app.dirname,
+                    config: app.config.$file
                 })
 
                 // if (apps.length)
@@ -224,7 +275,7 @@ export function createApp(init: ConfigInit, opts?: AppOptions): RPCApp {
             $id: app.$id,
             state: app.state,
             endpoint: app.endpoint,
-            path: app.config.server.path
+            path: app.config.server.dirname
         })
 
         for (const a of app.context.apps) {
@@ -232,7 +283,7 @@ export function createApp(init: ConfigInit, opts?: AppOptions): RPCApp {
                 $id: app.$id,
                 state: app.state,
                 endpoint: app.endpoint,
-                path: app.config.server.path
+                path: app.config.server.dirname
             })
         }
 
@@ -249,7 +300,7 @@ export function createApp(init: ConfigInit, opts?: AppOptions): RPCApp {
             return app.config.server.endpoint
         },
         get dirname() {
-            return app.config.server.path
+            return app.config.server.dirname
         },
         get state() {
             return state.value
@@ -305,7 +356,7 @@ export function createApp(init: ConfigInit, opts?: AppOptions): RPCApp {
             return open(`vscode://file${file.file.replace('file://', '')}`)
         }
 
-        return open(`vscode://file${app.config.server.path.replace('file://', '')}`)
+        return open(`vscode://file${app.config.server.dirname.replace('file://', '')}`)
     }
 
 
@@ -321,7 +372,7 @@ export function createApp(init: ConfigInit, opts?: AppOptions): RPCApp {
 
     async function update(init: ConfigInit) {
         await removeEndpoint(app.config)
-        const pathChanged = app.config.server.path !== init.server.path
+        const pathChanged = app.config.server.dirname !== init.server.dirname
         appConfig = defineConfig(init)
         // app.router = createAppRouter(app);
 
@@ -345,14 +396,7 @@ export function createApp(init: ConfigInit, opts?: AppOptions): RPCApp {
 
     async function startFilesWatcher() {
         await watchers.files?.close()
-        watchers.files = watchFiles({
-            path: app.config.server.path,
-            base: app.config.server.base,
-            origin: app.config.server.url.origin,
-            filter: app.config.filter,
-            endpoint: app.config.server.endpoint,
-            target: app.context.sse
-        }, (target, event) => {
+        watchers.files = watchFiles(app, (event) => {
             const url = event.http;
 
             if (event.type === 'changed') {
@@ -361,9 +405,9 @@ export function createApp(init: ConfigInit, opts?: AppOptions): RPCApp {
                 Object.assign(event, meta.get(url));
 
                 if (url.endsWith('.html')) {
-                    target.emit('reload', url);
+                    app.context.sse.emit('reload', url);
                 } else {
-                    target.emit('change', meta.getDependents(url, true));
+                    app.context.sse.emit('change', meta.getDependents(url, true));
                 }
             }
 
@@ -388,7 +432,7 @@ export function createApp(init: ConfigInit, opts?: AppOptions): RPCApp {
                 remoteImportersMap.delete(url)
             }
 
-            target.emit('file', event);
+            app.context.sse.emit('file', event);
         });
 
     }
@@ -430,14 +474,14 @@ export function createApp(init: ConfigInit, opts?: AppOptions): RPCApp {
             app.context.sse.emit('restart', 'app')
         }
 
+        unwatchRemoteAppImports(app.endpoint)
+
         await watchers.endpoints?.close()
         await watchers.files?.close()
         await state.set('stopped')
 
         await removeEndpoint(app.config) // (e) => app.context.sse.emit('endpoint', e)
-        // if (!app.isRestarting) {
         await app.context.sse.close()
-        // }
 
         return app
     }

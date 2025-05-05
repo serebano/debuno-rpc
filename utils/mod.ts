@@ -7,6 +7,7 @@ import fs from "node:fs/promises";
 import type { RPCApp } from "../types/app.ts";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import type { ConfigInit } from "../types/config.ts";
 
 export function getInspectorUrl() {
     return readFile(path.join(process.env['HOME']!, '.rpc', 'inspector.txt'), 'utf8')
@@ -84,24 +85,13 @@ function ensureTrailingSlash(path: string): string {
 }
 
 
-export function mapToSet(config: Record<string, string>, filePath?: string): {
-    readonly $id: string
-    readonly $addr: string
-    url: URL;
-    endpoint: string;
-    path: string;
-    port: number;
-    base: string;
-    host: string;
-    hostname: string;
-    protocol: string
-}[] {
+export function mapToSet(config: Record<string, string>, filePath?: string): ConfigInit['server'][] {
 
     return Object.keys(config)
         .map($addr => {
             let url = parseUrlLike($addr)
 
-            const path = config[$addr]
+            const dirname = config[$addr]
             const base = formatBase(url.pathname)
 
             const port = url.port
@@ -128,7 +118,7 @@ export function mapToSet(config: Record<string, string>, filePath?: string): {
                 base,
                 protocol,
                 hostname,
-                path,
+                dirname,
             };
         });
 }

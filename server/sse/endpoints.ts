@@ -67,7 +67,7 @@ export function watchEndpointsConfig(app: RPCApp): FSWatcher {
 }
 
 export async function removeEndpoint(config: Config, listener?: (o: { file: string; http: string; base: string; type: FileEvent['type']; }) => void) {
-    const { path, base, endpoint, url } = config.server
+    const { dirname: path, base, endpoint, url } = config.server
     console.debug(`[removeEndpoint]`, endpoint)
     const origins = await readEndpoints();
     const o = {
@@ -96,7 +96,7 @@ export async function removeEndpoint(config: Config, listener?: (o: { file: stri
 }
 
 export async function addEndpoint(config: Config, listener?: (o: { file: string; http: string; base: string; type: FileEvent['type']; }) => void) {
-    const { path, base, endpoint, url } = config.server
+    const { dirname: path, base, endpoint, url } = config.server
     console.debug(`[addEndpoint]`, endpoint)
     const res = await syncEndpoints()
     const origins = res.newEndpoints // await getOrigins();

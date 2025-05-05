@@ -58,7 +58,7 @@ export default createRoute((app) => {
             return ['GET', 'POST'].includes(request.method) && url.pathname.startsWith(app.config.server.base)
         },
         async fetch(request, url): Promise<Response> {
-            const srcDir = (app.config.server.path);
+            const srcDir = (app.config.server.dirname);
             const srcKey = init.srcKey || 'src' // basename(srcDir)
             const outKey = init.outKey || 'out' // basename(outDir)
             const indexFileName = init.indexFileName || 'index.html'
@@ -156,7 +156,7 @@ export default createRoute((app) => {
 
             switch (request.method) {
                 case 'POST':
-                    return exec(request, srcFilePath);
+                    return exec(request, srcFilePath, app);
 
                 case 'GET': {
 
@@ -192,7 +192,7 @@ export default createRoute((app) => {
 
                         const sources = {
                             original: {
-                                path: originalPath,
+                                path: originalPath.replace(app.dirname + '/', ''),
                                 lang: getLangFromExt(originalPath),
                                 contents: moduleVersionTransform(
                                     await readFile(originalPath, 'utf-8').then(removeInlineSourceMap),
@@ -202,7 +202,7 @@ export default createRoute((app) => {
                                 )
                             },
                             generated: hasGenerated ? {
-                                path: generatedPath,
+                                path: generatedPath.replace(app.dirname + '/', ''),
                                 lang: getLangFromExt(generatedPath),
                                 contents: moduleVersionTransform(
                                     await readFile(generatedPath, 'utf-8').then(removeInlineSourceMap),
@@ -220,6 +220,7 @@ export default createRoute((app) => {
                             base: app.config.server.base,
                             path: u.pathname.slice(app.config.server.base.length),
                             endpoint: app.config.server.endpoint,
+                            dirname: app.config.server.dirname,
                             ...meta.get(fileUrl),
                             sources,
                             // paths

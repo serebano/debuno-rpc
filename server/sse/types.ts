@@ -49,6 +49,7 @@ export interface File {
     http: string;
     version: number | null;
     endpoint: string;
+    dirname: string;
     dependents: Record<string, number | null> | null;
     dependencies: Record<string, number | null> | null
 }

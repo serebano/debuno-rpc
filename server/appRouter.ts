@@ -34,13 +34,14 @@ export function createAppRouter(app: RPCApp): Router {
             (req, _url) => req.method === 'HEAD',
             (_req, _url) => new Response(null, {
                 headers: {
-                    'x-path': app.config.server.path,
                     'x-base': app.config.server.base,
                     'x-port': app.config.server.port,
                     'x-host': app.config.server.host,
                     'x-hostname': app.config.server.hostname,
                     'x-protocol': app.config.server.protocol,
-                    'x-endpoint': app.config.server.endpoint
+                    'x-endpoint': app.config.server.endpoint,
+                    'x-dirname': app.config.server.dirname,
+                    'x-config': app.config.$file
                 } as any
             }),
             appId
@@ -138,14 +139,8 @@ export function createAppRouter(app: RPCApp): Router {
         ),
         /** ?files - Returns files */
         route(
-            (req, url) => url.searchParams.has('files'),
-            async (_req, url) => new Response(JSON.stringify(await getFiles({
-                path: app.config.server.path,
-                base: app.config.server.base,
-                filter: app.config.filter,
-                origin: url.origin,
-                endpoint: app.config.server.endpoint
-            }), null, 4), {
+            (_, url) => url.searchParams.has('files'),
+            async () => new Response(JSON.stringify(await app.context.getFiles(), null, 4), {
                 headers: {
                     'content-type': 'application/json'
                 }
@@ -162,30 +157,6 @@ export function createAppRouter(app: RPCApp): Router {
             }),
             appId
         ),
-        /** ?meta */
-        // route(
-        //     (req, url) => url.searchParams.has('meta'),
-        //     async (req, url) => new Response(JSON.stringify(url.pathname !== app.config.server.base
-        //         ? {
-        //             endpoint: app.config.server.endpoint,
-        //             base: app.config.server.base,
-        //             path: url.pathname.slice(app.config.server.base.length),
-        //             http: url.origin + url.pathname,
-        //             file: app.config.server.path + url.pathname.replace(app.config.server.base, '/'),
-        //             source: moduleVersionTransform(
-        //                 await readFile(app.config.server.path + url.pathname.replace(app.config.server.base, '/'), 'utf-8'),
-        //                 app.config.server.path + url.pathname.replace(app.config.server.base, '/'),
-        //                 url.origin + url.pathname
-        //             ),
-        //             ...meta.get(url.origin + url.pathname)
-        //         }
-        //         : meta.get(), null, 4), {
-        //         headers: {
-        //             'content-type': 'application/json'
-        //         }
-        //     }),
-        //     appId
-        // ),
         /** ?server */
         route(
             (req, url) => url.searchParams.has('server'),

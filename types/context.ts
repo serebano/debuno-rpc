@@ -26,6 +26,7 @@ export interface Context {
         endpoints: Map<string, Set<string>>;
         importers: Map<string, Set<string>>;
         imports: Map<string, Set<string>>;
+        appImports: Set<string> | undefined;
         unwatchImport: (remoteImport: string) => void
     }
 }
